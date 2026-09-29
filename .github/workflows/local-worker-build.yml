@@ -30,11 +30,6 @@ jobs:
         with:
           ref: testing-lts
 
-      - name: Install just
-        uses: taiki-e/install-action@b6a061addd82b81aaeca51bdf2c53cd707996e5a # just
-        with:
-          tool: just
-
       - name: Verify local worker
         shell: bash
         run: |
