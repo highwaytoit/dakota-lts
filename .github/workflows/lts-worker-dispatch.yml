@@ -1,0 +1,11 @@
+name: Run Dakota LTS worker build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: highwaytoit/dakota-lts/.github/workflows/local-worker-build.yml@testing-lts
