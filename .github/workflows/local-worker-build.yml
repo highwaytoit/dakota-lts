@@ -2,6 +2,7 @@ name: Local Dakota build
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Checkout testing-lts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: testing-lts
 
       - name: Install just
         uses: taiki-e/install-action@b6a061addd82b81aaeca51bdf2c53cd707996e5a # just
