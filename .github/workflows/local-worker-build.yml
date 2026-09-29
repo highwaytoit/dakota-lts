@@ -1,0 +1,72 @@
+name: Local Dakota build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dakota-local-worker
+  cancel-in-progress: false
+
+jobs:
+  build-default:
+    name: Build default image on worker-dakota
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - dakota-worker
+    timeout-minutes: 720
+
+    env:
+      BUILD_GAMING: "false"
+
+    steps:
+      - name: Checkout testing-lts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install just
+        uses: taiki-e/install-action@b6a061addd82b81aaeca51bdf2c53cd707996e5a # just
+        with:
+          tool: just
+
+      - name: Verify local worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: ${RUNNER_NAME}"
+          echo "OS: ${RUNNER_OS}"
+          echo "Architecture: ${RUNNER_ARCH}"
+          podman --version
+          buildah --version
+          skopeo --version
+          crun --version
+          podman info --format 'rootless={{.Host.Security.Rootless}} graphDriver={{.Store.GraphDriverName}}'
+          ls -l /dev/fuse
+          nproc
+          free -h
+          df -hT /
+          mkdir -p "${HOME}/.cache/buildstream"
+          du -sh "${HOME}/.cache/buildstream" || true
+
+      - name: Resolve BuildStream graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          just bst show --deps all --format "%{name}" oci/bluefin.bst | tee /tmp/dakota-elements.txt
+          echo "Element count: $(wc -l < /tmp/dakota-elements.txt)"
+
+      - name: Build default OCI image locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          just bst build oci/bluefin.bst
+
+      - name: Report cache and disk usage
+        if: always()
+        shell: bash
+        run: |
+          df -hT /
+          du -sh "${HOME}/.cache/buildstream" || true
