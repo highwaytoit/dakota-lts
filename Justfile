@@ -1450,8 +1450,8 @@ swap-audit:
             fail "$KARGS missing"
         else
             grep -q "zswap.enabled=1" "$KARGS" || fail "zswap.enabled=1 karg missing"
-            # kernel 7.x removed the zswap.zpool parameter
-            grep -q "zpool" "$KARGS" && fail "dead zswap.zpool karg present"
+            # Linux 6.18 uses zsmalloc as the only zswap pool backend.
+            grep -q "zpool" "$KARGS" && fail "unsupported zswap.zpool karg present"
         fi
 
         [ -f /usr/lib/systemd/system/var-swap-swapfile.swap ] \

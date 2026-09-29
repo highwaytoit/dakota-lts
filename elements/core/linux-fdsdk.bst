@@ -193,9 +193,11 @@ public:
 sources:
 - kind: git_repo
   url: kernel:linux/kernel/git/stable/linux.git
-  # Testing tracks the 7.2 stable series; rc kernels stay on next.
-  track: v7.2.*
-  ref: v7.2.6-0-g500df175a7f9e6bc1a9c328590ca5150f84f9ff0
+  # Dakota LTS tracks only stable point releases from the Linux 6.18
+  # longterm series. The local worker resolves this track before every build;
+  # v6.18-rc* does not match the v6.18.* point-release pattern.
+  track: v6.18.*
+  ref: v6.18.54-0-g1b357ecb321392158d507b04672ffee57bfa071d
 - kind: patch_queue
   path: patches/linux
 - kind: local

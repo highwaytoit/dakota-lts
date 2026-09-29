@@ -49,6 +49,27 @@ jobs:
           mkdir -p "${HOME}/.cache/buildstream"
           du -sh "${HOME}/.cache/buildstream" || true
 
+      - name: Track Linux 6.18 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          just bst source track core/linux-fdsdk.bst
+
+          KERNEL_TRACK=$(awk '/^[[:space:]]*track: / { print $2; exit }' elements/core/linux-fdsdk.bst)
+          KERNEL_REF=$(awk '/^[[:space:]]*ref: / { print $2; exit }' elements/core/linux-fdsdk.bst)
+
+          if [ "$KERNEL_TRACK" != "v6.18.*" ]; then
+            echo "::error::Kernel track escaped Linux 6.18 LTS: $KERNEL_TRACK"
+            exit 1
+          fi
+          if [[ ! "$KERNEL_REF" =~ ^v6\.18\.[0-9]+-0-g[0-9a-f]{40}$ ]]; then
+            echo "::error::Resolved kernel is not a stable Linux 6.18 point release: $KERNEL_REF"
+            exit 1
+          fi
+
+          echo "Resolved Linux LTS source: $KERNEL_REF"
+          echo "Linux LTS source: `$KERNEL_REF`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Resolve BuildStream graph
         shell: bash
         run: |
