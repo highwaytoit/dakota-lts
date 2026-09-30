@@ -17,6 +17,9 @@ permissions:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      packages: write
     uses: highwaytoit/dakota-lts/.github/workflows/local-worker-build.yml@testing-lts
     with:
       variant: ${{ inputs.variant }}
