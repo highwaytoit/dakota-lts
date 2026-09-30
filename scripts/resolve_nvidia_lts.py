@@ -17,7 +17,7 @@ import urllib.request
 from pathlib import Path
 
 RELEASES_URL = "https://docs.nvidia.com/datacenter/tesla/drivers/releases.json"
-DOWNLOAD_BASE = "https://us.download.nvidia.com/XFree86/Linux-x86_64"
+DOWNLOAD_BASE = "https://download.nvidia.com/XFree86/Linux-x86_64"
 ELEMENT = Path("elements/bluefin-nvidia/nvidia-drivers.bst")
 USER_AGENT = "dakota-lts-nvidia-tracker/1"
 
