@@ -382,11 +382,11 @@ config:
         systemd-hybrid-sleep.service \
         systemd-suspend-then-hibernate.service \
     ; do
-        install -Dm644 /dev/stdin \
-            "$SYSTEMD_DIR/system/$unit.d/nvidia-suspend-nofreeze.conf" <<'EOF'
-[Service]
-Environment=SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false
-EOF
+        install -d "$SYSTEMD_DIR/system/$unit.d"
+        printf '%s\n' \
+            '[Service]' \
+            'Environment=SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false' \
+            > "$SYSTEMD_DIR/system/$unit.d/nvidia-suspend-nofreeze.conf"
     done
 
     # nvidia-powerd (Dynamic Boost) is inert without all three: unit,
