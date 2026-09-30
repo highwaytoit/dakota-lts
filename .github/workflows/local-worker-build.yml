@@ -69,6 +69,15 @@ jobs:
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           echo "Selected variant: ${{ inputs.variant }} ($ELEMENT)"
 
+      - name: Prepare rootless Podman runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME_DIR="${RUNNER_TEMP}/podman-runtime"
+          mkdir -p "$RUNTIME_DIR"
+          chmod 700 "$RUNTIME_DIR"
+          echo "XDG_RUNTIME_DIR=$RUNTIME_DIR" >> "$GITHUB_ENV"
+
       - name: Verify local worker
         shell: bash
         run: |
