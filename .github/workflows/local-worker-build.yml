@@ -68,7 +68,7 @@ jobs:
           fi
 
           echo "Resolved Linux LTS source: $KERNEL_REF"
-          echo "Linux LTS source: `$KERNEL_REF`" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Linux LTS source: `%s`\n' "$KERNEL_REF" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve BuildStream graph
         shell: bash
