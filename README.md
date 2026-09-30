@@ -2,11 +2,18 @@
 
 Dakota LTS is an experimental fork of [Bluefin Dakota](https://github.com/projectbluefin/dakota) focused on combining Dakota's modern GNOME desktop and userspace with Linux 6.18 LTS.
 
-The goal is to stay close to upstream Dakota and keep the fork-specific changes small: Linux 6.18 LTS tracking first, with NVIDIA R580 LTS support planned next.
+The goal is to stay close to upstream Dakota and keep the fork-specific changes small. The fork currently provides both the standard Dakota LTS image and an NVIDIA LTS image using NVIDIA R580.
 
-**Current status:** Linux 6.18 LTS has completed a full local `oci/bluefin.bst` build successfully. VM boot testing and physical hardware validation are still pending.
+**Current status:** Linux 6.18 LTS builds successfully and has passed VM boot validation. The NVIDIA R580 image also builds successfully and has passed VM-level validation, including verification that the NVIDIA userspace tools, NVIDIA Settings application, and Linux 6.18 NVIDIA kernel modules are present in the image.
 
-Development currently happens on the `testing-lts` branch. The `testing` branch remains the default entry point for the fork.
+NVIDIA hardware validation is still pending. The next validation stage is testing on a physical NVIDIA system, including driver loading, `nvidia-smi`, Wayland graphics, suspend/resume, repeated sleep cycles, and NVIDIA power-management behavior.
+
+Development images are currently published as:
+
+- `ghcr.io/highwaytoit/dakota-lts:testing-lts`
+- `ghcr.io/highwaytoit/dakota-nvidia-lts:testing-lts`
+
+Development continues on the `testing-lts` branch. The `testing` branch remains the default entry point for the fork. After successful physical-hardware validation, the validated state can be promoted to a separate release/stable LTS branch.
 
 ## Upstream Dakota README
 
