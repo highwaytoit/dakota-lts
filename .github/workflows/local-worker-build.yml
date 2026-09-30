@@ -124,46 +124,6 @@ jobs:
           set -euo pipefail
           just bst build "$ELEMENT"
 
-      - name: Export finalized OCI image
-        shell: bash
-        run: |
-          set -euo pipefail
-          just export "${{ inputs.variant }}"
-
-      - name: Generate bootable raw disk
-        shell: bash
-        run: |
-          set -euo pipefail
-          just generate-bootable-image "${{ inputs.variant }}"
-
-      - name: Convert raw disk to qcow2
-        shell: bash
-        run: |
-          set -euo pipefail
-          just convert-to-qcow2
-
-      - name: Verify qcow2
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s bootable.qcow2
-          ls -lh bootable.raw bootable.qcow2
-          sha256sum bootable.qcow2 > bootable.qcow2.sha256
-          cat bootable.qcow2.sha256
-          if command -v qemu-img >/dev/null 2>&1; then
-            qemu-img info bootable.qcow2
-          fi
-
-      - name: Upload qcow2
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: dakota-lts-${{ inputs.variant }}-qcow2
-          path: |
-            bootable.qcow2
-            bootable.qcow2.sha256
-          retention-days: 7
-          if-no-files-found: error
-
       - name: Report cache and disk usage
         if: always()
         shell: bash
