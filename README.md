@@ -1,3 +1,19 @@
+# Dakota LTS
+
+Dakota LTS is an experimental fork of [Bluefin Dakota](https://github.com/projectbluefin/dakota) focused on combining Dakota's modern GNOME desktop and userspace with Linux 6.18 LTS.
+
+The goal is to stay close to upstream Dakota and keep the fork-specific changes small: Linux 6.18 LTS tracking first, with NVIDIA R580 LTS support planned next.
+
+**Current status:** Linux 6.18 LTS has completed a full local `oci/bluefin.bst` build successfully. VM boot testing and physical hardware validation are still pending.
+
+Development currently happens on the `testing-lts` branch. The `testing` branch remains the default entry point for the fork.
+
+## Upstream Dakota README
+
+The content below is retained from upstream Dakota for reference. Upstream image streams, downloads, issue workflows, and Project Bluefin links refer to the original Dakota project unless explicitly stated above.
+
+---
+
 # Bluefin Dakota
 *Dakotaraptor steini*
 
