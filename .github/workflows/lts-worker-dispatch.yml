@@ -2,6 +2,15 @@ name: Run Dakota LTS worker build
 
 on:
   workflow_dispatch:
+    inputs:
+      variant:
+        description: Image variant to build on worker-dakota
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - nvidia
 
 permissions:
   contents: read
@@ -9,3 +18,5 @@ permissions:
 jobs:
   build:
     uses: highwaytoit/dakota-lts/.github/workflows/local-worker-build.yml@testing-lts
+    with:
+      variant: ${{ inputs.variant }}
