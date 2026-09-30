@@ -7,8 +7,11 @@ description: |
   Hardware: Turing+ only (GTX 16xx, RTX 20xx-50xx, datacenter A/H/L/B).
   Pascal and earlier need the closed-source kernel module we don't ship.
 
-  To bump version: change url, ref (sha256), filename, and nvidia-version
-  below. Latest at https://www.nvidia.com/en-us/drivers/unix/.
+  Dakota LTS policy: stay on NVIDIA's R580 Long Term Support branch and
+  resolve the newest 580.x maintenance release before each NVIDIA build.
+  scripts/resolve_nvidia_lts.py updates url, ref (sha256), filename, and
+  nvidia-version in the local checkout only. Changing nvidia-lts-branch is
+  an explicit future LTS-generation decision.
 
 build-depends:
 - freedesktop-sdk.bst:bootstrap/coreutils.bst
@@ -40,12 +43,13 @@ depends:
 
 sources:
 - kind: remote
-  url: nvidia:XFree86/Linux-x86_64/615.71.09/NVIDIA-Linux-x86_64-615.71.09.run
-  ref: cdceed22bbeb61248d1a6deabc2596673e3a6501698ee71ac8d2fdc28f3b70fe
-  filename: NVIDIA-Linux-x86_64-615.71.09.run
+  url: nvidia:XFree86/Linux-x86_64/580.178.04/NVIDIA-Linux-x86_64-580.178.04.run
+  ref: 5975a86ee45bffcb626f51ae33d1169b108186a2ea47ad651e72f13fa4b6d6f9
+  filename: NVIDIA-Linux-x86_64-580.178.04.run
 
 variables:
-  nvidia-version: '615.71.09'
+  nvidia-lts-branch: '580'
+  nvidia-version: '580.178.04'
   strip-binaries: ''
 
 config:
