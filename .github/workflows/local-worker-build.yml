@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: dakota-local-worker
@@ -34,6 +35,8 @@ jobs:
       - X64
       - dakota-worker
     timeout-minutes: 720
+    outputs:
+      image_ref: ${{ steps.publish.outputs.image_ref }}
 
     env:
       BUILD_GAMING: "false"
@@ -51,9 +54,11 @@ jobs:
           case "${{ inputs.variant }}" in
             default)
               ELEMENT="oci/bluefin.bst"
+              IMAGE_TAG="testing"
               ;;
             nvidia)
               ELEMENT="oci/bluefin-nvidia.bst"
+              IMAGE_TAG="testing-nvidia"
               ;;
             *)
               echo "::error::Unsupported local worker variant: ${{ inputs.variant }}"
@@ -61,6 +66,7 @@ jobs:
               ;;
           esac
           echo "ELEMENT=$ELEMENT" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           echo "Selected variant: ${{ inputs.variant }} ($ELEMENT)"
 
       - name: Verify local worker
@@ -125,9 +131,80 @@ jobs:
           set -euo pipefail
           just bst build "$ELEMENT"
 
+      - name: Checkout OCI layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .vm-oci
+          just bst artifact checkout "$ELEMENT" --directory /src/.vm-oci
+          test -f .vm-oci/index.json
+          test -f .vm-oci/oci-layout
+
+      - name: Publish test image to GHCR
+        id: publish
+        shell: bash
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          IMAGE_REF="ghcr.io/${{ github.repository_owner }}/dakota-lts:$IMAGE_TAG"
+          skopeo copy --all             --dest-creds "$GH_ACTOR:$GH_TOKEN"             "oci:${PWD}/.vm-oci"             "docker://$IMAGE_REF"
+          echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+          printf 'Test image: `%s`\n' "$IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Report cache and disk usage
         if: always()
         shell: bash
         run: |
           df -hT /
           du -sh "${HOME}/.cache/buildstream" || true
+
+  qcow2:
+    name: Create downloadable qcow2
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Login to GHCR
+        shell: bash
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | sudo podman login ghcr.io --username "$GH_ACTOR" --password-stdin
+
+      - name: Build qcow2
+        uses: osbuild/image-builder-action@a56f95dd77327e604a4f4d9fc06a9641313fda36
+        with:
+          bootc_ref: ${{ needs.build.outputs.image_ref }}
+          bootc_default_fs: btrfs
+          image_type: qcow2
+
+      - name: Collect VM disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          QCOW=$(find output -type f -name '*.qcow2' -print -quit)
+          if [ -z "$QCOW" ]; then
+            echo "::error::No qcow2 produced"
+            find output -maxdepth 4 -type f -print || true
+            exit 1
+          fi
+          cp "$QCOW" "dakota-lts-${{ inputs.variant }}.qcow2"
+          sha256sum "dakota-lts-${{ inputs.variant }}.qcow2" > "dakota-lts-${{ inputs.variant }}.qcow2.sha256"
+
+      - name: Upload VM disk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dakota-lts-${{ inputs.variant }}-qcow2
+          path: |
+            dakota-lts-${{ inputs.variant }}.qcow2
+            dakota-lts-${{ inputs.variant }}.qcow2.sha256
+          retention-days: 7
+          if-no-files-found: error
