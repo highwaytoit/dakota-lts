@@ -112,25 +112,25 @@ def main() -> None:
     element = replace_once(
         element,
         r"^(\s*url:\s+nvidia:)XFree86/Linux-x86_64/[^/\s]+/NVIDIA-Linux-x86_64-[^\s]+\.run\s*$",
-        rf"\1{runfile_path}",
+        rf"\g<1>{runfile_path}",
         "NVIDIA runfile URL",
     )
     element = replace_once(
         element,
         r"^(\s*ref:\s+)[0-9a-fA-F]{64}\s*$",
-        rf"\1{sha256}",
+        rf"\g<1>{sha256}",
         "NVIDIA SHA-256",
     )
     element = replace_once(
         element,
         r"^(\s*filename:\s+)NVIDIA-Linux-x86_64-[^\s]+\.run\s*$",
-        rf"\1{filename}",
+        rf"\g<1>{filename}",
         "NVIDIA filename",
     )
     element = replace_once(
         element,
         r"^(\s*nvidia-version:\s*)['\"][^'\"]+['\"]\s*$",
-        rf"\1'{version}'",
+        rf"\g<1>'{version}'",
         "nvidia-version",
     )
 
