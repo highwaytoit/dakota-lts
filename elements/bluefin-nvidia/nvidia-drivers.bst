@@ -389,14 +389,15 @@ config:
             > "$SYSTEMD_DIR/system/$unit.d/nvidia-suspend-nofreeze.conf"
     done
 
-    # nvidia-powerd (Dynamic Boost) is inert without all three: unit,
-    # D-Bus policy to own nvidia.powerd.server, and its data table.
+    # nvidia-powerd (Dynamic Boost) requires its systemd unit and D-Bus
+    # policy. R580 does not ship dlsnetparams.csv, while newer branches do,
+    # so install that data table only when the selected payload provides it.
     # nvidia-dbus.conf is typed DOCUMENTATION, so TYPE selection above
     # can never pick it up. Absent from the preset below but still
     # enabled: no catch-all preset rule exists, so systemd's default
     # policy enables anything with [Install]. That's fine - it exits 0
     # on hardware without Dynamic Boost, so nothing lands in failed.
-    for f in systemd/system/nvidia-powerd.service nvidia-dbus.conf dlsnetparams.csv; do
+    for f in systemd/system/nvidia-powerd.service nvidia-dbus.conf; do
         if [ ! -f "$f" ]; then
             echo "ERROR: $f missing from driver payload" >&2
             exit 1
@@ -406,8 +407,10 @@ config:
         "$SYSTEMD_DIR/system/nvidia-powerd.service"
     install -Dm644 nvidia-dbus.conf \
         "%{install-root}%{datadir}/dbus-1/system.d/nvidia-dbus.conf"
-    install -Dm644 dlsnetparams.csv \
-        "%{install-root}%{datadir}/nvidia/nvidia-powerd/dlsnetparams.csv"
+    if [ -f dlsnetparams.csv ]; then
+        install -Dm644 dlsnetparams.csv \
+            "%{install-root}%{datadir}/nvidia/nvidia-powerd/dlsnetparams.csv"
+    fi
 
     # NVIDIA's SLA permits redistribution of the userspace libs only if
     # the EULA travels with them.
