@@ -430,11 +430,89 @@ clean:
 # ── bootc helper ─────────────────────────────────────────────────────
 [group('dev')]
 bootc *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    LSBLK_WRAPPER="$(mktemp)"
+    trap 'rm -f "$LSBLK_WRAPPER"' EXIT
+    cat > "$LSBLK_WRAPPER" <<'PY'
+    #!/usr/bin/python3 -I
+    import json
+    import os
+    import subprocess
+    import sys
+
+    REAL_LSBLK = "/usr/bin/lsblk"
+    REAL_BLKID = "/usr/sbin/blkid" if os.path.exists("/usr/sbin/blkid") else "/usr/bin/blkid"
+
+    def probe(path):
+        p = subprocess.run(
+            [REAL_BLKID, "-p", "-o", "export", path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+        if p.returncode != 0:
+            return {}
+        props = {}
+        for line in p.stdout.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                props[key] = value
+        return props
+
+    def backfill(dev):
+        path = dev.get("path")
+        if not path and dev.get("name"):
+            path = "/dev/" + dev["name"]
+
+        if path and (not dev.get("parttype") or not dev.get("pttype")):
+            props = probe(path)
+            if not dev.get("parttype") and props.get("PART_ENTRY_TYPE"):
+                dev["parttype"] = props["PART_ENTRY_TYPE"]
+            if not dev.get("pttype") and props.get("PTTYPE"):
+                dev["pttype"] = props["PTTYPE"]
+
+        for child in dev.get("children") or []:
+            backfill(child)
+
+    p = subprocess.run(
+        [REAL_LSBLK, *sys.argv[1:]],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    sys.stderr.buffer.write(p.stderr)
+
+    if p.returncode != 0:
+        sys.stdout.buffer.write(p.stdout)
+        raise SystemExit(p.returncode)
+
+    if "-J" not in sys.argv[1:] and "--json" not in sys.argv[1:]:
+        sys.stdout.buffer.write(p.stdout)
+        raise SystemExit(0)
+
+    try:
+        payload = json.loads(p.stdout)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        sys.stdout.buffer.write(p.stdout)
+        raise SystemExit(0)
+
+    for dev in payload.get("blockdevices") or []:
+        backfill(dev)
+
+    sys.stdout.write(json.dumps(payload, separators=(",", ":")) + "\n")
+    PY
+    chmod 0755 "$LSBLK_WRAPPER"
+
     sudo podman run \
         --rm --privileged --pid=host \
         -it \
         -v /var/lib/containers:/var/lib/containers \
         -v /dev:/dev \
+        -v "$LSBLK_WRAPPER:/run/lsblk:ro" \
+        -e PATH=/run:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
         -v "{{base_dir}}:/data" \
         --security-opt label=type:unconfined_t \
         "{{image_name}}:{{image_tag}}" bootc {{ARGS}}
