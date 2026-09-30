@@ -373,15 +373,20 @@ config:
     done
     install -Dm755 systemd/nvidia-sleep.sh "$BINDIR/nvidia-sleep.sh"
     install -Dm755 systemd/system-sleep/nvidia "$SYSTEMD_DIR/system-sleep/nvidia"
-    # NVIDIA's no-freeze drop-ins: systemd freezes user sessions before
-    # sleep, which deadlocks against the VT switch nvidia-sleep.sh does.
-    for d in systemd/system/systemd-*.service.d; do
-        if [ ! -d "$d" ]; then
-            echo "ERROR: no nvidia-suspend-nofreeze drop-ins in payload" >&2
-            exit 1
-        fi
-        install -Dm644 "$d/nvidia-suspend-nofreeze.conf" \
-            "$SYSTEMD_DIR/system/$(basename "$d")/nvidia-suspend-nofreeze.conf"
+    # NVIDIA's R580 .run payload does not ship the systemd no-freeze
+    # drop-ins. Install the required policy explicitly so systemd does not
+    # freeze the graphical session before nvidia-sleep.sh performs its VT switch.
+    for unit in \
+        systemd-suspend.service \
+        systemd-hibernate.service \
+        systemd-hybrid-sleep.service \
+        systemd-suspend-then-hibernate.service \
+    ; do
+        install -Dm644 /dev/stdin \
+            "$SYSTEMD_DIR/system/$unit.d/nvidia-suspend-nofreeze.conf" <<'EOF'
+[Service]
+Environment=SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false
+EOF
     done
 
     # nvidia-powerd (Dynamic Boost) is inert without all three: unit,
