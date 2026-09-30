@@ -38,12 +38,14 @@ jobs:
         run: |
           set -euo pipefail
           LTS_SHA=$(git rev-parse HEAD)
+          BUILD_TAG="build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           CREATED=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo "LTS_SHA=$LTS_SHA" >> "$GITHUB_ENV"
+          echo "BUILD_TAG=$BUILD_TAG" >> "$GITHUB_ENV"
           echo "OCI_IMAGE_REVISION=$LTS_SHA" >> "$GITHUB_ENV"
           echo "OCI_IMAGE_CREATED=$CREATED" >> "$GITHUB_ENV"
           echo "OCI_IMAGE_VERSION=$TESTING_TAG" >> "$GITHUB_ENV"
-          echo "Dakota LTS commit: `$LTS_SHA`" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Dakota LTS commit: %s\nBuild tag: %s\n' "$LTS_SHA" "$BUILD_TAG" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify local worker
         shell: bash
@@ -122,9 +124,9 @@ jobs:
         run: |
           set -euo pipefail
           just chunkify "localhost/dakota:latest"
-          LAYERS=$(sudo podman image inspect --format '{{len .RootFS.Layers}}' localhost/dakota:latest)
+          LAYERS=$(sudo podman image inspect --format '{{len .RootFS.Layers}}' localhost/dakota:latest 2>/dev/null || echo unknown)
           echo "Default image layers after Chunkah: $LAYERS"
-          echo "Default Chunkah layers: **$LAYERS** (upstream limit: 120)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Default Chunkah layers: $LAYERS (upstream limit: 120)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate default image
         shell: bash
@@ -145,9 +147,9 @@ jobs:
         run: |
           set -euo pipefail
           just chunkify "localhost/dakota-nvidia:latest"
-          LAYERS=$(sudo podman image inspect --format '{{len .RootFS.Layers}}' localhost/dakota-nvidia:latest)
+          LAYERS=$(sudo podman image inspect --format '{{len .RootFS.Layers}}' localhost/dakota-nvidia:latest 2>/dev/null || echo unknown)
           echo "NVIDIA image layers after Chunkah: $LAYERS"
-          echo "NVIDIA Chunkah layers: **$LAYERS** (upstream limit: 120)" >> "$GITHUB_STEP_SUMMARY"
+          echo "NVIDIA Chunkah layers: $LAYERS (upstream limit: 120)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate NVIDIA image
         shell: bash
@@ -166,7 +168,7 @@ jobs:
           set -euo pipefail
           echo "$GH_TOKEN" | sudo podman login ghcr.io --username "$GH_ACTOR" --password-stdin
 
-      - name: Push immutable SHA images
+      - name: Push build-tagged images
         env:
           DEFAULT_IMAGE: ${{ env.IMAGE_REGISTRY }}/dakota-lts
           NVIDIA_IMAGE: ${{ env.IMAGE_REGISTRY }}/dakota-nvidia-lts
@@ -174,8 +176,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          sudo podman tag localhost/dakota:latest "$DEFAULT_IMAGE:$LTS_SHA"
-          sudo podman tag localhost/dakota-nvidia:latest "$NVIDIA_IMAGE:$LTS_SHA"
+          sudo podman tag localhost/dakota:latest "$DEFAULT_IMAGE:$BUILD_TAG"
+          sudo podman tag localhost/dakota-nvidia:latest "$NVIDIA_IMAGE:$BUILD_TAG"
 
           push_with_retry() {
             ref="$1"
@@ -192,8 +194,8 @@ jobs:
             [ "$ok" = true ] || { echo "::error::All push attempts failed for $ref"; exit 1; }
           }
 
-          push_with_retry "$DEFAULT_IMAGE:$LTS_SHA" /tmp/dakota-lts-digest.txt
-          push_with_retry "$NVIDIA_IMAGE:$LTS_SHA" /tmp/dakota-nvidia-lts-digest.txt
+          push_with_retry "$DEFAULT_IMAGE:$BUILD_TAG" /tmp/dakota-lts-digest.txt
+          push_with_retry "$NVIDIA_IMAGE:$BUILD_TAG" /tmp/dakota-nvidia-lts-digest.txt
 
           DEFAULT_DIGEST=$(cat /tmp/dakota-lts-digest.txt)
           NVIDIA_DIGEST=$(cat /tmp/dakota-nvidia-lts-digest.txt)
@@ -220,7 +222,7 @@ jobs:
 
             skopeo copy               --src-creds "$GH_ACTOR:$GH_TOKEN"               --dest-creds "$GH_ACTOR:$GH_TOKEN"               "docker://$IMAGE@$DIGEST"               "docker://$IMAGE:$TESTING_TAG"
 
-            PROMOTED=$(skopeo inspect --no-tags --creds "$GH_ACTOR:$GH_TOKEN"               "docker://$IMAGE:$TESTING_TAG" | jq -r '.Digest')
+            PROMOTED=$(skopeo inspect --no-tags --format '{{.Digest}}' --creds "$GH_ACTOR:$GH_TOKEN" "docker://$IMAGE:$TESTING_TAG")
             [ "$PROMOTED" = "$DIGEST" ] || {
               echo "::error::$IMAGE:$TESTING_TAG resolved to $PROMOTED, expected $DIGEST"
               exit 1
@@ -229,10 +231,11 @@ jobs:
 
           {
             echo "Published:"
-            echo "- `$DEFAULT_IMAGE:$TESTING_TAG` — `$DEFAULT_DIGEST`"
-            echo "- `$NVIDIA_IMAGE:$TESTING_TAG` — `$NVIDIA_DIGEST`"
+            echo "- $DEFAULT_IMAGE:$TESTING_TAG — $DEFAULT_DIGEST"
+            echo "- $NVIDIA_IMAGE:$TESTING_TAG — $NVIDIA_DIGEST"
             echo ""
-            echo "Immutable SHA tag: `$LTS_SHA`"
+            echo "Build tag retained for rollback: $BUILD_TAG"
+            echo "Source commit: $LTS_SHA"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report cache and disk usage
