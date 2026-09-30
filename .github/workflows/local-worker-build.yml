@@ -2,7 +2,21 @@ name: Local Dakota build
 
 on:
   workflow_dispatch:
+    inputs:
+      variant:
+        description: Image variant to build on worker-dakota
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - nvidia
   workflow_call:
+    inputs:
+      variant:
+        required: false
+        type: string
+        default: default
 
 permissions:
   contents: read
@@ -12,8 +26,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-default:
-    name: Build default image on worker-dakota
+  build:
+    name: Build ${{ inputs.variant }} image on worker-dakota
     runs-on:
       - self-hosted
       - Linux
@@ -29,6 +43,25 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: testing-lts
+
+      - name: Select build variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.variant }}" in
+            default)
+              ELEMENT="oci/bluefin.bst"
+              ;;
+            nvidia)
+              ELEMENT="oci/bluefin-nvidia.bst"
+              ;;
+            *)
+              echo "::error::Unsupported local worker variant: ${{ inputs.variant }}"
+              exit 1
+              ;;
+          esac
+          echo "ELEMENT=$ELEMENT" >> "$GITHUB_ENV"
+          echo "Selected variant: ${{ inputs.variant }} ($ELEMENT)"
 
       - name: Verify local worker
         shell: bash
@@ -70,18 +103,27 @@ jobs:
           echo "Resolved Linux LTS source: $KERNEL_REF"
           printf 'Linux LTS source: `%s`\n' "$KERNEL_REF" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Resolve NVIDIA R580 LTS
+        if: inputs.variant == 'nvidia'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOLVED=$(python3 scripts/resolve_nvidia_lts.py)
+          echo "Resolved NVIDIA LTS source: $RESOLVED"
+          printf 'NVIDIA LTS source: `%s`\n' "$RESOLVED" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Resolve BuildStream graph
         shell: bash
         run: |
           set -euo pipefail
-          just bst show --deps all --format "%{name}" oci/bluefin.bst | tee /tmp/dakota-elements.txt
+          just bst show --deps all --format "%{name}" "$ELEMENT" | tee /tmp/dakota-elements.txt
           echo "Element count: $(wc -l < /tmp/dakota-elements.txt)"
 
-      - name: Build default OCI image locally
+      - name: Build selected OCI image locally
         shell: bash
         run: |
           set -euo pipefail
-          just bst build oci/bluefin.bst
+          just bst build "$ELEMENT"
 
       - name: Report cache and disk usage
         if: always()
