@@ -290,12 +290,38 @@ Useful R580 reference:
 
 ### LTS adaptation
 
-The LTS branch now creates the drop-ins explicitly for:
+The LTS branch now creates the sleep drop-ins explicitly for:
 
 - `systemd-suspend.service`
 - `systemd-hibernate.service`
 - `systemd-hybrid-sleep.service`
 - `systemd-suspend-then-hibernate.service`
+
+Those four units receive:
+
+```ini
+[Service]
+Environment=SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false
+```
+
+There is also a separate systemd-homed freeze path. The LTS branch creates:
+
+```text
+/usr/lib/systemd/system/systemd-homed.service.d/10-nvidia-no-freeze-session.conf
+```
+
+with:
+
+```ini
+[Service]
+Environment=SYSTEMD_HOME_LOCK_FREEZE_SESSION=false
+```
+
+This fifth override is not the normal suspend path. It prevents systemd-homed
+from freezing an NVIDIA graphical session while locking a managed home
+directory. On systems that do not use systemd-homed-managed home directories it
+is effectively inert, but keeping it preserves the broader NVIDIA/systemd
+no-freeze compatibility policy used by newer packaging.
 
 Commits:
 
@@ -513,14 +539,23 @@ Still present:
 
 ### Session freeze handling
 
-Still present:
+Still present for the four systemd sleep units:
 
 ```ini
 [Service]
 Environment=SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false
 ```
 
-for the relevant systemd sleep units.
+Also present for `systemd-homed.service`:
+
+```ini
+[Service]
+Environment=SYSTEMD_HOME_LOCK_FREEZE_SESSION=false
+```
+
+The systemd-homed override is separate from normal suspend/resume. It preserves
+the same NVIDIA no-freeze intent if a managed home directory is locked while an
+NVIDIA graphical session is active.
 
 ### VRAM preservation
 
@@ -606,7 +641,8 @@ At minimum check:
 - all NVIDIA suspend/resume/hibernate units
 - `nvidia-sleep.sh`
 - system-sleep hook
-- systemd no-freeze policy/drop-ins
+- systemd sleep no-freeze policy/drop-ins
+- systemd-homed no-freeze policy
 - license/EULA file layout
 
 ### C. Preserve the laptop PM contract

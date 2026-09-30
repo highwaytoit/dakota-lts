@@ -389,6 +389,15 @@ config:
             > "$SYSTEMD_DIR/system/$unit.d/nvidia-suspend-nofreeze.conf"
     done
 
+    # systemd-homed has a separate session-freeze path when locking managed
+    # home directories. Keep NVIDIA sessions unfrozen there as well, matching
+    # the compatibility policy shipped by newer NVIDIA packaging.
+    install -d "$SYSTEMD_DIR/system/systemd-homed.service.d"
+    printf '%s\n' \
+        '[Service]' \
+        'Environment=SYSTEMD_HOME_LOCK_FREEZE_SESSION=false' \
+        > "$SYSTEMD_DIR/system/systemd-homed.service.d/10-nvidia-no-freeze-session.conf"
+
     # nvidia-powerd (Dynamic Boost) requires its systemd unit and D-Bus
     # policy. R580 does not ship dlsnetparams.csv, while newer branches do,
     # so install that data table only when the selected payload provides it.
