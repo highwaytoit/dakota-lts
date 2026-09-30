@@ -1,98 +1,58 @@
-# Bluefin Dakota
-*Dakotaraptor steini*
+# Dakota LTS
 
-[Bluefin](https://projectbluefin.io) built on [GNOME OS](https://os.gnome.org/), assembled entirely from source.
+Dakota LTS is a downstream variant of [Bluefin Dakota](https://github.com/projectbluefin/dakota).
 
-<a href="https://docs.projectbluefin.io/changelogs">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://docs.projectbluefin.io/img/cards/dakota-dark.png">
-    <img src="https://docs.projectbluefin.io/img/cards/dakota-light.png" alt="Bluefin Dakota" width="800">
-  </picture>
-</a>
+The goal is simple: keep the modern Dakota desktop and userspace while using a slower-moving Linux and NVIDIA base for long-term stability.
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/projectbluefin/dakota)
+## What is different
 
-**Alpha** — [filing issues](https://github.com/projectbluefin/dakota/issues) is the whole point.
+- Linux stays on the **6.18 LTS** series and follows stable 6.18.x point releases.
+- The NVIDIA image stays on the **R580 LTS** driver branch.
+- Normal Dakota desktop, userspace, application, codec, and platform improvements continue to follow upstream.
+- Upstream changes that touch the kernel, NVIDIA, initramfs/module coupling, or NVIDIA power-management behavior are reviewed before they are brought into Dakota LTS.
 
-## Built-in feedback loop
+This repository does not replace upstream Dakota documentation. For Dakota features, design, feedback workflows, and general project documentation, use the [upstream Dakota repository](https://github.com/projectbluefin/dakota).
 
-Dakota doesn't eat tickets, it treats them as evidence.
+## Branch model
 
-Every user running Dakota is part of a structured loop that flows directly back into upstream GNOME, freedesktop, and the kernel. When something breaks on your hardware, you have three commands:
+- `testing` — upstream integration lane. Current upstream Dakota changes are reviewed here first.
+- `testing-lts` — active Dakota LTS development branch.
 
-| Command | What it does |
-|---|---|
-| `ujust report` | Captures your system state and opens a pre-filled issue. One command instead of a wall of "please attach logs." |
-| `ujust confirm <issue>` | Tells the team your hardware hits the same bug. Adds a hardware fingerprint to the issue — no duplicate filing. |
-| `ujust verify <issue>` | After a fix ships in a nightly, confirms it works on your machine. Closes the loop with evidence. |
+The intended maintenance flow is:
 
-No telemetry. No phone-home. Every report is reviewed by you before it leaves your machine, lives in a gist you own, and can be deleted anytime.
+**Upstream Dakota `testing` → fork `testing` → review → `testing-lts`**
 
-When three users independently run `ujust verify` on a fix, that issue closes with real confidence — not just "we think this is fixed."
+This keeps the upstream connection intact while protecting the LTS kernel and NVIDIA choices.
 
-### The hardware layer
+## Development images
 
-Each Dakota installation is designed to run as a hardware diagnostic lab for itself. When will you find your first?
+Current development images:
 
-[Read the full feedback loop design](docs/feedback-loop.md)
+- `ghcr.io/highwaytoit/dakota-lts:testing-lts`
+- `ghcr.io/highwaytoit/dakota-nvidia-lts:testing-lts`
 
-## The research behind it
+These are development/testing images and are not a stable release channel yet.
 
-Dakota is human driven with contribution workflows for agents, so if you have tokens to donate, ask it to review issues or PRs, it's useful! The humans make the final decisions. We coordinate this project via a tool called [Hive](https://github.com/kubestellar/hive) from Kubestellar, a CNCF Sandbox project.
+## Validation status
 
-Dakota's feedback loop model is grounded in Andy Anderson's work on autonomous AI-assisted software development. The core finding: the intelligence of a system like this lives not in any single model, but in the infrastructure of instructions, tests, metrics, and feedback loops surrounding it.
+- Linux 6.18 LTS image builds successfully.
+- NVIDIA R580 image builds successfully.
+- VM-level validation has passed for the LTS images.
+- Physical NVIDIA hardware validation is still required before stable promotion, including driver loading, `nvidia-smi`, Wayland, suspend/resume, repeated sleep cycles, and power-management behavior.
 
-- [The AI Codebase Maturity Model](https://arxiv.org/abs/2604.09388) — the arxiv paper
-- [When AI agents become contributors](https://www.cncf.io/blog/2026/05/14/when-ai-agents-become-contributors-how-kubestellar-reached-81-pr-acceptance/) — CNCF blog
-- [Beyond prompting: How KubeStellar reached 81% PR acceptance](https://thenewstack.io/ai-codebase-maturity-model/) — The New Stack
-- [KubeStellar Hive](https://github.com/kubestellar/hive) — the reference implementation Dakota draws from
+## LTS maintenance policy
 
-## Help shape what gets built
+The LTS contract is the branch family, not one frozen point release:
 
-**Architects and designers** — these features and epics need your input before any code is written. Design decisions, tradeoffs, and priorities:
+- Linux: `v6.18.*`
+- NVIDIA: R580
 
-### [Open features and epics for discussion &rarr;](https://github.com/projectbluefin/dakota/issues?q=is%3Aopen+label%3Astatus%2Fdiscussing+label%3Atype%2Ffeature%2Ckind%2Fepic)
+Stable point releases inside those LTS branches can move forward through the existing resolver/tracking workflow.
 
-Leave a comment, challenge the design, propose alternatives. When a discussion reaches consensus a maintainer marks it `status/approved` and it enters the build queue.
+Changes outside those LTS families are explicit maintenance decisions and are not inherited automatically.
 
-**Engineers** — these issues have clear acceptance criteria and no open design questions. Pick one up and build it:
+## Upstream
 
-### [Agent-ready build queue &rarr;](https://github.com/projectbluefin/dakota/issues?q=is%3Aopen+label%3Astatus%2Fqueued+no%3Aassignee)
+Dakota LTS is based on and follows [projectbluefin/dakota](https://github.com/projectbluefin/dakota).
 
-Comment `/claim` to take an issue. See [AGENTS.md](AGENTS.md) for the full contributor workflow.
-
-## Image streams
-
-|        Tag |  Stream |                                                                                                    What it is |
-| ---------: | ------: | ------------------------------------------------------------------------------------------------------------: |
-|  `:stable` |  Stable |                        GNOME 50 — production. On-demand promotion from `:testing` via `just release --apply`. |
-| `:testing` |     Dev |                                              GNOME 50 — daily builds from `testing` branch. Boot-check gated. |
-|    `:next` | Rolling | **GNOME master — the bleeding edge.** Tracks gnome-build-meta `master` daily. Auto-updates, zero maintenance. |
-|     `:btw` | Rolling |                                                                                            Alias for `:next`. |
-
-`:next` / `:btw` is the arch competitor stream — latest GNOME the moment it lands upstream, built from source with memory-safe defaults (sudo-rs, uutils-coreutils). If you want to run GNOME before everyone else and help find regressions before they reach stable, this is your image.
-
-```bash
-# Switch to the rolling stream
-sudo bootc switch ghcr.io/projectbluefin/dakota:next
-# or
-sudo bootc switch ghcr.io/projectbluefin/dakota:btw
-```
-
-## ISO Download
-
-[dakota-live-latest.iso](https://projectbluefin.dev/dakota-live-latest.iso) · [Checksum](https://projectbluefin.dev/dakota-live-latest.iso-CHECKSUM)
-
-
-## Known gaps
-
-- Installation path is still being worked on
-- Upgrades and rollbacks need more hardening
-
-See the [open issues](https://github.com/projectbluefin/dakota/issues) for where things stand.
-
-## Contributing or building from source
-
-See [AGENTS.md](AGENTS.md) for the full contributor workflow, build instructions, and PR checklist.
-
-![Dakorator](https://github.com/user-attachments/assets/ee92291d-a617-496e-abb6-9045a4c665ce)
+General Dakota issues and documentation belong upstream. Fork-specific Linux 6.18 LTS, NVIDIA R580, and Dakota LTS integration work belong in this repository.
