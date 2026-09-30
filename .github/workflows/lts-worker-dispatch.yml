@@ -1,4 +1,4 @@
-name: Run Dakota LTS worker build
+name: Manual Dakota LTS local build
 
 on:
   workflow_dispatch:

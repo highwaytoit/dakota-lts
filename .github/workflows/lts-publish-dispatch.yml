@@ -1,0 +1,12 @@
+name: Publish Dakota LTS test images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    uses: highwaytoit/dakota-lts/.github/workflows/local-worker-publish.yml@testing-lts
