@@ -5,6 +5,8 @@ sources:
   url: github:bootc-dev/bootc.git
   track: v*
   ref: v1.16.14-0-gc87b62fb805a69793fa0cba671bbed10a2132423
+- kind: patch
+  path: patches/bootc/0001-blockdev-backfill-missing-partition-metadata.patch
 - kind: cargo2
   ref:
   - kind: registry
