@@ -435,6 +435,7 @@ bootc *ARGS:
         -it \
         -v /var/lib/containers:/var/lib/containers \
         -v /dev:/dev \
+        -v /run/udev:/run/udev:ro \
         -v "{{base_dir}}:/data" \
         --security-opt label=type:unconfined_t \
         "{{image_name}}:{{image_tag}}" bootc {{ARGS}}
@@ -475,6 +476,7 @@ generate-bootable-image variant="default" $base_dir=base_dir $filesystem=filesys
         --wipe \
         --composefs-backend \
         --bootloader systemd \
+        --generic-image \
         --karg systemd.firstboot=no \
         --karg splash \
         --karg quiet
