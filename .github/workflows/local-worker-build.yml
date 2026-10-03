@@ -125,11 +125,12 @@ jobs:
           set -euo pipefail
           just bst build "$ELEMENT"
 
-      - name: Clean dangling Podman data
+      - name: Clean stale local build state
         if: always()
         shell: bash
         run: |
           set +e
+          sudo buildah rm --all
           podman container prune -f
           podman image prune -f
           sudo podman container prune -f
