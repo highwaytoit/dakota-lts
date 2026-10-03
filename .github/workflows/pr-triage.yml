@@ -49,15 +49,14 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # All content PRs must target testing.
-          # testing is the development trunk; main is a release bookmark only.
-          if [ "$BASE_REF" = "testing" ]; then
-            echo "PR targets testing — allowed."
+          # Content PRs may target testing or testing-lts.
+          if [ "$BASE_REF" = "testing" ] || [ "$BASE_REF" = "testing-lts" ]; then
+            echo "PR targets $BASE_REF — allowed."
             exit 0
           fi
-          # Block everything else (including main) with redirect to testing.
-          echo "ERROR: PRs must target 'testing'. Got: '$BASE_REF'."
-          gh pr comment "$PR_URL" --body "This PR targets \`${BASE_REF}\` — please retarget it to \`testing\`. All content PRs (features, fixes, BST changes) land on \`testing\`. The \`main\` branch is a release bookmark only." \
+          # Block everything else (including main).
+          echo "ERROR: PRs must target 'testing' or 'testing-lts'. Got: '$BASE_REF'."
+          gh pr comment "$PR_URL" --body "This PR targets \`${BASE_REF}\` — please retarget it to \`testing\` or \`testing-lts\`." \
             2>/dev/null || true
           exit 1
 
