@@ -2,11 +2,9 @@ name: Build Bluefin dakota
 
 on:
   push:
-    # next builds per content push too: syncs and merged junction bumps queue
-    # behind testing in the shared concurrency group. queue: max keeps every
-    # queued run (FIFO) instead of superseding — the stale-check job below
-    # collapses burst days to one build of the newest state per branch.
-    branches: [testing, next]
+    # queue: max keeps every queued run (FIFO) instead of superseding — the
+    # stale-check job below collapses burst days to one build of the newest state.
+    branches: [testing]
     paths:
       - "elements/**"
       - "plugins/**"
@@ -23,7 +21,7 @@ on:
   workflow_dispatch:
   # Label a same-repo PR `build` to build it; adding the label starts a run.
   pull_request:
-    branches: [testing, next]
+    branches: [testing]
     types: [opened, synchronize, reopened, labeled]
 
 permissions: read-all
@@ -34,8 +32,7 @@ env:
 
 # queue: max holds up to 100 pending runs FIFO. The default (queue: single)
 # keeps only ONE pending run per group and cancels the previous pending run
-# whenever a new one arrives — so a testing push followed ~40s later by the
-# sync-next push to next silently discarded the testing build (2026-08-22).
+# whenever a new one arrives.
 concurrency:
   group: dakota-bst-build-global
   cancel-in-progress: false
