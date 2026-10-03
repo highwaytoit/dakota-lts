@@ -16,6 +16,7 @@ env:
   BUILD_IMAGE_NAME: dakota
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
   TESTING_TAG: testing-lts
+  BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
 
 jobs:
   publish:
@@ -238,9 +239,39 @@ jobs:
             echo "Source commit: $LTS_SHA"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Remove published local build tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Removing local build-* tags after successful GHCR publication."
+          while IFS= read -r ref; do
+            case "$ref" in
+              "${IMAGE_REGISTRY}/dakota-lts:build-"*|"${IMAGE_REGISTRY}/dakota-nvidia-lts:build-"*)
+                echo "Removing local tag: $ref"
+                sudo podman rmi "$ref" || true
+                ;;
+            esac
+          done < <(sudo podman images --format '{{.Repository}}:{{.Tag}}')
+
+      - name: Clean dangling Podman data
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          podman container prune -f
+          podman image prune -f
+          sudo podman container prune -f
+          sudo podman image prune -f
+
       - name: Report cache and disk usage
         if: always()
         shell: bash
         run: |
+          echo "==> Filesystem"
           df -hT /
+          echo "==> BuildStream cache"
           du -sh "$HOME/.cache/buildstream" || true
+          echo "==> Rootless Podman"
+          podman system df || true
+          echo "==> Rootful Podman"
+          sudo podman system df || true

@@ -36,6 +36,7 @@ jobs:
     timeout-minutes: 720
     env:
       BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
 
     steps:
       - name: Checkout testing-lts
@@ -124,10 +125,26 @@ jobs:
           set -euo pipefail
           just bst build "$ELEMENT"
 
+      - name: Clean dangling Podman data
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          podman container prune -f
+          podman image prune -f
+          sudo podman container prune -f
+          sudo podman image prune -f
+
       - name: Report cache and disk usage
         if: always()
         shell: bash
         run: |
+          echo "==> Filesystem"
           df -hT /
+          echo "==> BuildStream cache"
           du -sh "${HOME}/.cache/buildstream" || true
+          echo "==> Rootless Podman"
+          podman system df || true
+          echo "==> Rootful Podman"
+          sudo podman system df || true
 
