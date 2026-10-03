@@ -2,13 +2,13 @@ name: Validate
 
 on:
   pull_request:
-    branches: [testing, next, main]
+    branches: [testing, main]
     # "edited" fires when a PR's base branch changes. Without it, a PR
     # opened against one branch and retargeted here merges without ever
     # re-running validation against the new base (see #1386).
     types: [opened, synchronize, reopened, edited]
   merge_group:
-    branches: [testing, next, main]
+    branches: [testing, main]
 
 permissions:
   contents: read

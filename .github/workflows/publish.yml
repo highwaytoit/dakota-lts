@@ -12,8 +12,6 @@ on:
     workflows: ["Build Bluefin dakota"]
     types: [completed]
     branches:
-      - next
-      - 'gh-readonly-queue/next/**'
       - testing
       - 'gh-readonly-queue/testing/**'
 
@@ -29,7 +27,7 @@ permissions:
   actions: read
 
 concurrency:
-  # Separate publish queues per branch so next and testing don't collide.
+  # Serialize publication independently by triggering branch.
   group: publish-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
@@ -47,9 +45,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event != 'pull_request' &&
-       (github.event.workflow_run.head_branch == 'next' ||
-        startsWith(github.event.workflow_run.head_branch, 'gh-readonly-queue/next/') ||
-        github.event.workflow_run.head_branch == 'testing' ||
+       (github.event.workflow_run.head_branch == 'testing' ||
         startsWith(github.event.workflow_run.head_branch, 'gh-readonly-queue/testing/')))
     steps:
       - name: Resolve build SHA and trigger event
@@ -74,11 +70,8 @@ jobs:
           # Merge-queue builds (gh-readonly-queue/**) publish an immutable :SHA
           # tag only — they must NOT move public stream tags before the commit lands.
           # testing  → :testing  (published daily on schedule)
-          # next     → :next     (rolling GNOME master / bleeding edge)
           # queue/** → (empty)   :SHA only, no stream tag
-          if [[ "$BRANCH" == "next" ]]; then
-            echo "testing_tag=next" >> "$GITHUB_OUTPUT"
-          elif [[ "$BRANCH" == "testing" ]]; then
+          if [[ "$BRANCH" == "testing" ]]; then
             echo "testing_tag=testing" >> "$GITHUB_OUTPUT"
           else
             # merge-queue or other refs: publish :SHA tag only, do NOT move stream tags
@@ -485,23 +478,3 @@ jobs:
             exit 1
           fi
 
-      - name: Push :btw alias (next stream only)
-        if: needs.setup.outputs.testing_tag == 'next'
-        env:
-          GH_ACTOR: ${{ github.actor }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DIGEST: ${{ steps.digest.outputs.digest }}
-        run: |
-          IMAGE="${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.image_suffix }}"
-          PUSH_OK=false
-          for attempt in 1 2 3; do
-            skopeo copy \
-              --preserve-digests \
-              --src-creds "$GH_ACTOR:$GH_TOKEN" \
-              --dest-creds "$GH_ACTOR:$GH_TOKEN" \
-              "docker://${IMAGE}@${DIGEST}" \
-              "docker://${IMAGE}:btw" && { PUSH_OK=true; break; }
-            echo "skopeo copy attempt ${attempt} failed for :btw, retrying in 5s..."
-            [ "$attempt" -lt 3 ] && sleep 5
-          done
-          $PUSH_OK || { echo "ERROR: all copy attempts failed for :btw"; exit 1; }
