@@ -6,64 +6,73 @@ The goal is simple: keep the modern Dakota desktop and userspace while using a s
 
 ## What is different
 
-- The current Linux baseline is **6.18 LTS**, following stable 6.18.x point releases while that LTS generation is in use.
+- The current Linux baseline is **6.18 LTS**, following stable 6.18.x point releases.
 - The current NVIDIA baseline is the **R580 LTS** driver branch.
-- Dakota LTS follows a **slow-moving LTS cadence**. Linux 6.18 and NVIDIA R580 are the current baseline, not permanent choices for the full lifetime of those branches.
 - Normal Dakota desktop, userspace, application, codec, and platform improvements continue to follow upstream.
-- Changes that touch the kernel, NVIDIA, initramfs/module coupling, or NVIDIA power-management behavior are reviewed before they are brought into Dakota LTS.
+- Kernel, NVIDIA, initramfs/module coupling, and NVIDIA power-management changes are reviewed before entering the LTS release lane.
+- Routine Linux 6.18.x and NVIDIA R580 maintenance releases are resolved at build time without changing the approved LTS generation.
 
 This repository does not replace upstream Dakota documentation. For Dakota features, design, feedback workflows, and general project documentation, use the [upstream Dakota repository](https://github.com/projectbluefin/dakota).
 
-## Branch model
+## Branch and release model
 
-- `testing` — upstream integration lane. Current upstream Dakota changes are reviewed here first.
-- `testing-lts` — active Dakota LTS development branch.
+- `testing` — upstream integration lane. This stays close to upstream Dakota and receives dependency/source updates first.
+- `testing-lts` — LTS candidate lane. Selected changes are validated here in a VM and, when appropriate, on physical hardware.
+- `main` — production source branch.
 
-The intended maintenance flow is:
+The intended flow is:
 
-**Upstream Dakota `testing` → fork `testing` → review → `testing-lts`**
+**Upstream Dakota `testing` → fork `testing` → review → `testing-lts` → validation → `main`**
 
-This keeps the upstream connection intact while protecting the LTS kernel and NVIDIA choices.
-
-## Development images
-
-Current development images:
+Image channels:
 
 - `ghcr.io/highwaytoit/dakota-lts:testing-lts`
 - `ghcr.io/highwaytoit/dakota-nvidia-lts:testing-lts`
+- `ghcr.io/highwaytoit/dakota-lts:stable`
+- `ghcr.io/highwaytoit/dakota-nvidia-lts:stable`
 
-These are development/testing images and are not a stable release channel yet.
+`:testing-lts` is the candidate/testing channel. `:stable` is the normal production channel.
+
+## Release cadence
+
+Code and integration changes move through `testing-lts` before they reach `main`.
+
+The stable publisher runs from `main`:
+
+- automatically every Friday at **07:00 UTC** (02:00 EST),
+- automatically after a push to `main`,
+- manually through GitHub Actions when needed.
+
+Each stable run resolves the newest maintenance release inside the approved Linux 6.18 and NVIDIA R580 branches, builds both images, validates them, pushes immutable build tags, and then moves `:stable` only after both images build successfully.
+
+A new Linux LTS generation or NVIDIA LTS generation is not automatic. Changing either baseline is an explicit maintenance decision that goes through `testing-lts` validation first.
 
 ## Validation status
 
-- Linux 6.18 LTS image builds successfully.
-- NVIDIA R580 image builds successfully.
-- VM-level validation has passed for the LTS images.
-- Physical NVIDIA hardware validation is still required before stable promotion, including driver loading, `nvidia-smi`, Wayland, suspend/resume, repeated sleep cycles, and power-management behavior.
+Both image variants are now running on physical hardware.
+
+- **Dell Latitude 7210 2-in-1** — non-NVIDIA Dakota LTS image, running without known issues observed.
+- **Dell Precision 5570** — NVIDIA Dakota LTS image on an NVIDIA RTX A2000 8GB Laptop GPU, running without known issues observed.
+- NVIDIA R580.178.04 has been validated on the Precision 5570 with the driver loaded and `nvidia-smi` reporting the RTX A2000 correctly.
+- VM-level validation has also passed for the LTS images.
+
+Hardware coverage will continue to grow as the project is used on more systems.
 
 ## LTS maintenance policy
-
-Dakota LTS follows a slow-moving LTS cadence rather than tracking the newest kernel and NVIDIA driver generations.
 
 Current baseline:
 
 - Linux: `v6.18.*`
 - NVIDIA: R580
 
-Stable point releases inside the active LTS branches can move forward through the existing resolver and tracking workflow.
+Dakota LTS follows a slow-moving LTS cadence rather than tracking the newest kernel and NVIDIA driver generations.
 
-Linux 6.18 and NVIDIA R580 are the current baseline, not permanent requirements for Dakota LTS.
+A baseline can remain in use while it remains supported and compatible with the rest of Dakota. A newer LTS baseline may replace it earlier when maintaining the older generation begins to hold back hardware support, security, graphics, or the desktop stack.
 
-A baseline may remain supported for a longer period when there is a practical reason or user demand, as long as both the kernel and NVIDIA driver remain supported and the rest of the Dakota desktop can continue to work cleanly with them.
-
-A newer LTS baseline may also replace the current one before either component reaches end of life. This is expected when maintaining the older kernel or NVIDIA generation begins to hold back the desktop, hardware support, security, graphics stack, or other parts of Dakota.
-
-The timing of a baseline change is therefore driven by compatibility and maintainability rather than by a fixed yearly schedule or by the published end-of-life date of a single component.
-
-Moving to a new Linux LTS or NVIDIA long-lived driver generation is an explicit Dakota LTS maintenance decision and is reviewed and validated before adoption.
+Moving to a new Linux LTS or NVIDIA long-lived driver generation is always reviewed and validated before adoption.
 
 ## Upstream
 
 Dakota LTS is based on and follows [projectbluefin/dakota](https://github.com/projectbluefin/dakota).
 
-General Dakota issues and documentation belong upstream. Fork-specific Linux LTS, NVIDIA long-lived driver, and Dakota LTS integration work belong in this repository.
+General Dakota issues and documentation belong upstream. Fork-specific Linux LTS, NVIDIA long-lived driver, release-channel, and Dakota LTS integration work belong in this repository.
