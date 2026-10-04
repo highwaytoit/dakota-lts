@@ -25,7 +25,7 @@ jobs:
             # Only versions tagged solely :pr-N; never a version that also
             # carries a stream or SHA tag.
             IDS=$(gh api "/orgs/${OWNER}/packages/container/${PACKAGE}/versions" --paginate \
-              --jq ".[] | select(.metadata.container.tags == [\"${PR_TAG}\"]) | .id")
+              --jq ".[] | select(.metadata.container.tags == [\"${PR_TAG}\"]) | .id" 2>/dev/null || true)
             if [ -z "$IDS" ]; then
               echo "${PACKAGE}:${PR_TAG} not found; nothing to delete"
               continue
