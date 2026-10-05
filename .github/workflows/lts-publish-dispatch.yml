@@ -1,4 +1,4 @@
-name: Publish Dakota LTS test images
+name: Testing-LTS — Build and Publish
 
 on:
   workflow_dispatch:
@@ -9,4 +9,4 @@ permissions:
 
 jobs:
   publish:
-    uses: highwaytoit/dakota-lts/.github/workflows/local-worker-publish.yml@testing-lts
+    uses: highwaytoit/dakota-lts/.github/workflows/testing-lts-publish.yml@testing-lts
