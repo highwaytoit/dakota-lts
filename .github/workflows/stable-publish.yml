@@ -1,0 +1,293 @@
+name: Stable — Build and Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "elements/**"
+      - "plugins/**"
+      - "patches/**"
+      - "include/**"
+      - "scripts/**"
+      - "Justfile"
+      - "project.conf"
+      - ".github/workflows/stable-publish.yml"
+  schedule:
+    - cron: '0 7 * * 5' # Friday 02:00 EST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: dakota-stable-worker
+  cancel-in-progress: false
+
+env:
+  BUILD_GAMING: "false"
+  BUILD_IMAGE_NAME: dakota
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  STABLE_TAG: stable
+  BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+
+jobs:
+  publish:
+    name: Build, rechunk, and publish Dakota LTS images
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - dakota-worker
+    timeout-minutes: 720
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+
+      - name: Capture publication context
+        shell: bash
+        run: |
+          set -euo pipefail
+          STABLE_SHA=$(git rev-parse HEAD)
+          BUILD_TAG="build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          CREATED=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo "STABLE_SHA=$STABLE_SHA" >> "$GITHUB_ENV"
+          echo "BUILD_TAG=$BUILD_TAG" >> "$GITHUB_ENV"
+          echo "OCI_IMAGE_REVISION=$STABLE_SHA" >> "$GITHUB_ENV"
+          echo "OCI_IMAGE_CREATED=$CREATED" >> "$GITHUB_ENV"
+          echo "OCI_IMAGE_VERSION=$STABLE_TAG" >> "$GITHUB_ENV"
+          printf 'Dakota stable source: %s\nBuild tag: %s\n' "$STABLE_SHA" "$BUILD_TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify local worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: $RUNNER_NAME"
+          echo "OS: $RUNNER_OS"
+          echo "Architecture: $RUNNER_ARCH"
+          podman --version
+          buildah --version
+          skopeo --version
+          crun --version
+          gcc --version | head -1
+          podman info --format 'rootless={{.Host.Security.Rootless}} graphDriver={{.Store.GraphDriverName}}'
+          ls -l /dev/fuse
+          nproc
+          free -h
+          df -hT /
+          mkdir -p "$HOME/.cache/buildstream"
+          du -sh "$HOME/.cache/buildstream" || true
+
+      - name: Track Linux 6.18 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          just bst source track core/linux-fdsdk.bst
+
+          KERNEL_TRACK=$(awk '/^[[:space:]]*track: / { print $2; exit }' elements/core/linux-fdsdk.bst)
+          KERNEL_REF=$(awk '/^[[:space:]]*ref: / { print $2; exit }' elements/core/linux-fdsdk.bst)
+
+          if [ "$KERNEL_TRACK" != "v6.18.*" ]; then
+            echo "::error::Kernel track escaped Linux 6.18 LTS: $KERNEL_TRACK"
+            exit 1
+          fi
+          if [[ ! "$KERNEL_REF" =~ ^v6\.18\.[0-9]+-0-g[0-9a-f]{40}$ ]]; then
+            echo "::error::Resolved kernel is not a stable Linux 6.18 point release: $KERNEL_REF"
+            exit 1
+          fi
+
+          echo "Resolved Linux LTS source: $KERNEL_REF"
+          printf 'Linux LTS source: `%s`\n' "$KERNEL_REF" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve NVIDIA R580 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOLVED=$(python3 scripts/resolve_nvidia_lts.py)
+          echo "Resolved NVIDIA LTS source: $RESOLVED"
+          printf 'NVIDIA LTS source: `%s`\n' "$RESOLVED" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve BuildStream graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for element in oci/bluefin.bst oci/bluefin-nvidia.bst; do
+            echo "==> $element"
+            just bst show --deps all --format "%{name}" "$element" > /tmp/dakota-elements.txt
+            echo "Element count: $(wc -l < /tmp/dakota-elements.txt)"
+          done
+
+      - name: Build both OCI images locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          just bst build oci/bluefin.bst
+          just bst build oci/bluefin-nvidia.bst
+
+      - name: Export default OCI image
+        shell: bash
+        run: |
+          set -euo pipefail
+          just export default
+
+      - name: Rechunk default image
+        shell: bash
+        run: |
+          set -euo pipefail
+          just chunkify "localhost/dakota:latest"
+          LAYERS=$(sudo podman image inspect --format '{{len .RootFS.Layers}}' localhost/dakota:latest 2>/dev/null || echo unknown)
+          echo "Default image layers after Chunkah: $LAYERS"
+          echo "Default Chunkah layers: $LAYERS (upstream limit: 120)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate default image
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_IMAGE_NAME=dakota just lint
+          BUILD_IMAGE_NAME=dakota just swap-audit
+          BUILD_IMAGE_NAME=dakota just avatar-audit
+
+      - name: Export NVIDIA OCI image
+        shell: bash
+        run: |
+          set -euo pipefail
+          just export nvidia
+
+      - name: Rechunk NVIDIA image
+        shell: bash
+        run: |
+          set -euo pipefail
+          just chunkify "localhost/dakota-nvidia:latest"
+          LAYERS=$(sudo podman image inspect --format '{{len .RootFS.Layers}}' localhost/dakota-nvidia:latest 2>/dev/null || echo unknown)
+          echo "NVIDIA image layers after Chunkah: $LAYERS"
+          echo "NVIDIA Chunkah layers: $LAYERS (upstream limit: 120)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate NVIDIA image
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_IMAGE_NAME=dakota-nvidia just lint
+          BUILD_IMAGE_NAME=dakota-nvidia just swap-audit
+          BUILD_IMAGE_NAME=dakota-nvidia just avatar-audit
+
+      - name: Login to GHCR
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | sudo podman login ghcr.io --username "$GH_ACTOR" --password-stdin
+
+      - name: Push build-tagged images
+        env:
+          DEFAULT_IMAGE: ${{ env.IMAGE_REGISTRY }}/dakota-lts
+          NVIDIA_IMAGE: ${{ env.IMAGE_REGISTRY }}/dakota-nvidia-lts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo podman tag localhost/dakota:latest "$DEFAULT_IMAGE:$BUILD_TAG"
+          sudo podman tag localhost/dakota-nvidia:latest "$NVIDIA_IMAGE:$BUILD_TAG"
+
+          push_with_retry() {
+            ref="$1"
+            digestfile="$2"
+            ok=false
+            for attempt in 1 2 3; do
+              if sudo podman push --compression-format=zstd --digestfile "$digestfile" "$ref"; then
+                ok=true
+                break
+              fi
+              echo "Push attempt $attempt failed for $ref; retrying in 5s..."
+              [ "$attempt" -lt 3 ] && sleep 5
+            done
+            [ "$ok" = true ] || { echo "::error::All push attempts failed for $ref"; exit 1; }
+          }
+
+          push_with_retry "$DEFAULT_IMAGE:$BUILD_TAG" /tmp/dakota-lts-digest.txt
+          push_with_retry "$NVIDIA_IMAGE:$BUILD_TAG" /tmp/dakota-nvidia-lts-digest.txt
+
+          DEFAULT_DIGEST=$(cat /tmp/dakota-lts-digest.txt)
+          NVIDIA_DIGEST=$(cat /tmp/dakota-nvidia-lts-digest.txt)
+
+          [[ "$DEFAULT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Bad default digest: $DEFAULT_DIGEST"; exit 1; }
+          [[ "$NVIDIA_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Bad NVIDIA digest: $NVIDIA_DIGEST"; exit 1; }
+
+          echo "DEFAULT_DIGEST=$DEFAULT_DIGEST" >> "$GITHUB_ENV"
+          echo "NVIDIA_DIGEST=$NVIDIA_DIGEST" >> "$GITHUB_ENV"
+
+      - name: Promote stable tags
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_IMAGE: ${{ env.IMAGE_REGISTRY }}/dakota-lts
+          NVIDIA_IMAGE: ${{ env.IMAGE_REGISTRY }}/dakota-nvidia-lts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for spec in "$DEFAULT_IMAGE|$DEFAULT_DIGEST" "$NVIDIA_IMAGE|$NVIDIA_DIGEST"; do
+            IMAGE=$(printf '%s' "$spec" | cut -d '|' -f 1)
+            DIGEST=$(printf '%s' "$spec" | cut -d '|' -f 2)
+
+            skopeo copy               --src-creds "$GH_ACTOR:$GH_TOKEN"               --dest-creds "$GH_ACTOR:$GH_TOKEN"               "docker://$IMAGE@$DIGEST"               "docker://$IMAGE:$STABLE_TAG"
+
+            PROMOTED=$(skopeo inspect --no-tags --format '{{.Digest}}' --creds "$GH_ACTOR:$GH_TOKEN" "docker://$IMAGE:$STABLE_TAG")
+            [ "$PROMOTED" = "$DIGEST" ] || {
+              echo "::error::$IMAGE:$STABLE_TAG resolved to $PROMOTED, expected $DIGEST"
+              exit 1
+            }
+          done
+
+          {
+            echo "Published:"
+            echo "- $DEFAULT_IMAGE:$STABLE_TAG — $DEFAULT_DIGEST"
+            echo "- $NVIDIA_IMAGE:$STABLE_TAG — $NVIDIA_DIGEST"
+            echo ""
+            echo "GHCR build tag retained for rollback: $BUILD_TAG"
+            echo "Source commit: $STABLE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove published local Dakota images
+        shell: bash
+        run: |
+          set +e
+          echo "Removing local Dakota image tags after successful GHCR publication."
+          while IFS= read -r ref; do
+            case "$ref" in
+              "${IMAGE_REGISTRY}/dakota-lts:build-"*|"${IMAGE_REGISTRY}/dakota-nvidia-lts:build-"*)
+                echo "Removing local build tag: $ref"
+                sudo podman rmi "$ref"
+                ;;
+            esac
+          done < <(sudo podman images --format '{{.Repository}}:{{.Tag}}')
+          sudo podman rmi localhost/dakota:latest
+          sudo podman rmi localhost/dakota-nvidia:latest
+
+      - name: Clean stale local build state
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          sudo buildah rm --all
+          podman container prune -f
+          podman image prune -f
+          sudo podman container prune -f
+          sudo podman image prune -f
+
+      - name: Report cache and disk usage
+        if: always()
+        shell: bash
+        run: |
+          echo "==> Filesystem"
+          df -hT /
+          echo "==> BuildStream cache"
+          du -sh "$HOME/.cache/buildstream" || true
+          echo "==> Rootless Podman"
+          podman system df || true
+          echo "==> Rootful Podman"
+          sudo podman system df || true
