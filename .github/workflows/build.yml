@@ -1,4 +1,4 @@
-name: Build Bluefin dakota
+name: Testing — Upstream Build
 
 on:
   push:
@@ -12,13 +12,6 @@ on:
       - "Justfile"
       - "project.conf"
       - "include/**"
-  # Fires daily at 13:00 UTC — 5 hours after the gnome-build-meta nightly
-  # (~08:00 UTC) to absorb nightly deltas before building.
-  # NOTE: schedule triggers run on the default branch; set testing as the
-  # default branch in repo settings for this to target testing.
-  schedule:
-    - cron: "0 13 * * *"
-  workflow_dispatch:
   # Label a same-repo PR `build` to build it; adding the label starts a run.
   pull_request:
     branches: [testing]
@@ -39,22 +32,6 @@ concurrency:
   queue: max
 
 jobs:
-  verify-default-branch:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-      - name: Verify repository default branch is "testing"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          db=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)
-          if [ "$db" != "testing" ]; then
-            echo "::error::default branch is '$db', expected 'testing'. Daily schedule will silently target wrong branch. Fix repo settings."
-            exit 1
-          fi
-
   # With queue: max every push queues its own run instead of superseding the
   # previous pending one. A run that waited in the queue may be stale by the
   # time it starts: a newer push run for the same branch is already queued
