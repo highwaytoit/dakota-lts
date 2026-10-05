@@ -378,7 +378,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: testing
-        with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
@@ -430,7 +429,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: testing
-        with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
