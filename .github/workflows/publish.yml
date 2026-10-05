@@ -1,4 +1,4 @@
-name: Publish Bluefin dakota
+name: Testing — Upstream Publish
 
 on:
   workflow_dispatch:
