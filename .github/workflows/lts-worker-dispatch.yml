@@ -1,4 +1,4 @@
-name: Manual Dakota LTS local build
+name: Testing-LTS — Build
 
 on:
   workflow_dispatch:
@@ -20,6 +20,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: highwaytoit/dakota-lts/.github/workflows/local-worker-build.yml@testing-lts
+    uses: highwaytoit/dakota-lts/.github/workflows/testing-lts-build.yml@testing-lts
     with:
       variant: ${{ inputs.variant }}
