@@ -1,7 +1,21 @@
 name: Testing — Upstream Build
 
 on:
-  workflow_dispatch:
+  push:
+    # queue: max keeps every queued run (FIFO) instead of superseding — the
+    # stale-check job below collapses burst days to one build of the newest state.
+    branches: [testing]
+    paths:
+      - "elements/**"
+      - "plugins/**"
+      - "patches/**"
+      - "Justfile"
+      - "project.conf"
+      - "include/**"
+  # Label a same-repo PR `build` to build it; adding the label starts a run.
+  pull_request:
+    branches: [testing]
+    types: [opened, synchronize, reopened, labeled]
 
 permissions: read-all
 
@@ -11,8 +25,7 @@ env:
 
 # queue: max holds up to 100 pending runs FIFO. The default (queue: single)
 # keeps only ONE pending run per group and cancels the previous pending run
-# whenever a new one arrives — so a testing push followed ~40s later by the
-# sync-next push to next silently discarded the testing build (2026-08-22).
+# whenever a new one arrives.
 concurrency:
   group: dakota-bst-build-global
   cancel-in-progress: false
@@ -59,7 +72,7 @@ jobs:
           fi
 
   build:
-    needs: [verify-default-branch, stale-check]
+    needs: [stale-check]
     if: (!cancelled()) && needs.stale-check.outputs.stale != 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build') && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-26.04
     timeout-minutes: 350
