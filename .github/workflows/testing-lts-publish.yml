@@ -264,8 +264,7 @@ jobs:
           sudo buildah rm --all
           podman container prune -f
           podman image prune -a -f
-          sudo podman container prune -f
-          sudo podman image prune -a -f
+          sudo podman system reset -f
 
       - name: Report cache and disk usage
         if: always()
