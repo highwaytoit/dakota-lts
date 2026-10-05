@@ -8,10 +8,11 @@ on:
       - "plugins/**"
       - "patches/**"
       - "include/**"
+      - "files/**"
       - "scripts/**"
       - "Justfile"
       - "project.conf"
-      - ".github/workflows/stable-publish.yml"
+      - ".github/buildstream-worker.conf"
   schedule:
     - cron: '0 7 * * 5' # Friday 02:00 EST
   workflow_dispatch:
