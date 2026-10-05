@@ -49,14 +49,21 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Content PRs may target testing or testing-lts.
+          # Integration PRs may target testing or testing-lts.
           if [ "$BASE_REF" = "testing" ] || [ "$BASE_REF" = "testing-lts" ]; then
             echo "PR targets $BASE_REF — allowed."
             exit 0
           fi
-          # Block everything else (including main).
-          echo "ERROR: PRs must target 'testing' or 'testing-lts'. Got: '$BASE_REF'."
-          gh pr comment "$PR_URL" --body "This PR targets \`${BASE_REF}\` — please retarget it to \`testing\` or \`testing-lts\`." \
+
+          # Production source only accepts promotion from testing-lts.
+          HEAD_REF="${{ github.event.pull_request.head.ref }}"
+          if [ "$BASE_REF" = "main" ] && [ "$HEAD_REF" = "testing-lts" ]; then
+            echo "PR promotes testing-lts to main — allowed."
+            exit 0
+          fi
+
+          echo "ERROR: PRs must target testing/testing-lts, or promote testing-lts to main. Got base='$BASE_REF' head='$HEAD_REF'."
+          gh pr comment "$PR_URL" --body "Production \`main\` only accepts promotion from \`testing-lts\`. Normal changes must target \`testing\` or \`testing-lts\`." \
             2>/dev/null || true
           exit 1
 
