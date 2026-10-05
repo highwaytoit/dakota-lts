@@ -1,4 +1,4 @@
-name: Publish Bluefin dakota
+name: Testing — Upstream Publish
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         type: string
         default: ''
   workflow_run:
-    workflows: ["Build Bluefin dakota"]
+    workflows: ["Testing — Upstream Build"]
     types: [completed]
     branches:
       - testing
