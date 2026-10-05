@@ -16,13 +16,16 @@ This repository does not replace upstream Dakota documentation. For Dakota featu
 
 ## Branch and release model
 
-- `testing` — upstream integration lane. This stays close to upstream Dakota and receives dependency/source updates first.
-- `testing-lts` — LTS candidate lane. Selected changes are validated here in a VM and, when appropriate, on physical hardware.
-- `main` — production source branch.
+- `testing-lts` — LTS adoption/candidate branch. The upstream source for LTS adoption is `projectbluefin/dakota:testing`. Selected changes are validated here in a VM and, when appropriate, on physical hardware.
+- `main` — stable production source branch.
 
 The intended flow is:
 
-**Upstream Dakota `testing` → fork `testing` → review → `testing-lts` → validation → `main`**
+**Upstream Dakota `testing` → `testing-lts` → validation → `main`**
+
+Stable promotion is `testing-lts` → `main`; do not independently replay the same commits onto `main`.
+
+The fork `testing` branch may continue to exist for upstream-derived/integration purposes, but it is not part of the Dakota LTS release chain.
 
 Image channels:
 
