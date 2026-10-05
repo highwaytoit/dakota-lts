@@ -103,6 +103,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: testing
 
       - name: Pull BuildStream container image
         run: podman pull "$BST2_IMAGE"
@@ -143,6 +145,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: testing
 
       - name: Setup Just
         uses: taiki-e/install-action@861a07ce7084f55488e375df125cdc99bba60eb7 # v2
@@ -373,6 +377,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: testing
+        with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
@@ -422,6 +428,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: testing
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
