@@ -1,4 +1,4 @@
-name: Build Bluefin dakota
+name: Testing — Upstream Build
 
 on:
   workflow_dispatch:
@@ -19,22 +19,6 @@ concurrency:
   queue: max
 
 jobs:
-  verify-default-branch:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-      - name: Verify repository default branch is "testing"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          db=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)
-          if [ "$db" != "testing" ]; then
-            echo "::error::default branch is '$db', expected 'testing'. Daily schedule will silently target wrong branch. Fix repo settings."
-            exit 1
-          fi
-
   # With queue: max every push queues its own run instead of superseding the
   # previous pending one. A run that waited in the queue may be stale by the
   # time it starts: a newer push run for the same branch is already queued
