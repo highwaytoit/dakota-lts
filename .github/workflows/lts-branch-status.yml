@@ -1,0 +1,78 @@
+name: LTS Branch Status
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * *' # Daily at 08:23 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout testing-lts with full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: testing-lts
+          fetch-depth: 0
+
+      - name: Fetch required branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/projectbluefin/dakota.git
+          git fetch --no-tags upstream refs/heads/testing:refs/remotes/upstream/testing
+          git fetch --no-tags origin \
+            refs/heads/testing-lts:refs/remotes/origin/testing-lts \
+            refs/heads/main:refs/remotes/origin/main
+
+          for ref in upstream/testing origin/testing-lts origin/main; do
+            git rev-parse --verify "${ref}^{commit}"
+          done
+
+      - name: Summarize adoption and stable promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPSTREAM_PENDING=$(git rev-list --count origin/testing-lts..upstream/testing)
+          LTS_ONLY=$(git rev-list --count upstream/testing..origin/testing-lts)
+          PROMOTION_PENDING=$(git rev-list --count origin/main..origin/testing-lts)
+          MAIN_ONLY=$(git rev-list --count origin/testing-lts..origin/main)
+
+          {
+            echo '# Dakota LTS branch status'
+            echo
+            echo 'Counts reflect commit ancestry, including equivalent changes with different SHAs. Branch differences are informational and do not fail this workflow.'
+            echo
+            echo '## Upstream adoption status'
+            echo
+            echo 'Comparing `projectbluefin/dakota:testing` (`upstream/testing`) with `origin/testing-lts`.'
+            echo
+            echo "- Upstream commits not yet in testing-lts: **$UPSTREAM_PENDING**"
+            echo "- testing-lts commits not present in upstream testing: **$LTS_ONLY**"
+            if [ "$UPSTREAM_PENDING" -gt 0 ]; then
+              echo
+              echo '### Upstream commits waiting for adoption (up to 20 most recent)'
+              echo
+              echo '```text'
+              git log --no-decorate --format='%h %s' -n 20 origin/testing-lts..upstream/testing
+              echo '```'
+            fi
+            echo
+            echo '## Stable promotion status'
+            echo
+            echo 'Comparing `origin/testing-lts` with `origin/main`.'
+            echo
+            echo "- testing-lts commits not yet in main: **$PROMOTION_PENDING**"
+            echo "- main-only commits: **$MAIN_ONLY**"
+            if [ "$PROMOTION_PENDING" -gt 0 ]; then
+              echo
+              echo '### testing-lts commits waiting for stable promotion (up to 20 most recent)'
+              echo
+              echo '```text'
+              git log --no-decorate --format='%h %s' -n 20 origin/main..origin/testing-lts
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

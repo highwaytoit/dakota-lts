@@ -46,6 +46,7 @@ jobs:
       - name: Validate PR target branch
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -56,7 +57,6 @@ jobs:
           fi
 
           # Production source only accepts promotion from testing-lts.
-          HEAD_REF="${{ github.event.pull_request.head.ref }}"
           if [ "$BASE_REF" = "main" ] && [ "$HEAD_REF" = "testing-lts" ]; then
             echo "PR promotes testing-lts to main — allowed."
             exit 0
