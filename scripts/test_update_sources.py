@@ -507,6 +507,10 @@ class CliTests(unittest.TestCase):
                          ["gtk4-layer-shell", "gum", "jetbrains-mono-nerd-font", "uupd"])
 
 
+@unittest.skipUnless(
+    (REPOSITORY / ".github/workflows/track-next-junctions.yml").is_file(),
+    "next workflow is not present in this fork",
+)
 class NextKernelPolicyTests(unittest.TestCase):
     """Execute the PR-policy shell with stubbed git/gh, never mutate a remote."""
 
@@ -590,12 +594,13 @@ class WiringTests(unittest.TestCase):
         self.assertIn('just update-sources --group tarballs --record-dir "$RUNNER_TEMP/tracked"', text)
         self.assertIn("- name: Upload updates\n        if: ${{ !cancelled() }}", text)
         self.assertNotIn("source track", text)
-        for name in ("track-bst-sources.yml", "track-next-junctions.yml"):
-            self.assertIn("just update-sources --group core-junctions",
-                          (REPOSITORY / ".github/workflows" / name).read_text())
-        next_workflow = (REPOSITORY / ".github/workflows/track-next-junctions.yml").read_text()
-        self.assertIn("just update-sources --group kernels", next_workflow)
-        self.assertIn("elements/core/linux-fdsdk.bst elements/core/linux-ogc.bst", next_workflow)
+        self.assertIn("just update-sources --group core-junctions", text)
+        next_workflow_path = REPOSITORY / ".github/workflows/track-next-junctions.yml"
+        if next_workflow_path.is_file():
+            next_workflow = next_workflow_path.read_text()
+            self.assertIn("just update-sources --group core-junctions", next_workflow)
+            self.assertIn("just update-sources --group kernels", next_workflow)
+            self.assertIn("elements/core/linux-fdsdk.bst elements/core/linux-ogc.bst", next_workflow)
         justfile = (REPOSITORY / "Justfile").read_text()
         self.assertIn('[positional-arguments]\nupdate-sources *FLAGS:\n'
                       '    python3 scripts/update_sources.py "$@"', justfile)
