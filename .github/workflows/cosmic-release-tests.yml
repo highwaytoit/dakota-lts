@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout experimental branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Compile resolver and test source
         run: python3 -m py_compile scripts/cosmic_release_audit.py scripts/test_cosmic_release_audit.py
       - name: Run offline regression tests
@@ -29,3 +29,24 @@ jobs:
       - name: Confirm baseline structure
         run: |
           python3 -c 'import json; x=json.load(open("cosmic/release-baseline.json")); assert x["release"].startswith("epoch-"); assert len(x["components"]) == len({v["id"] for v in x["components"]}); print("Baseline:",x["release"],len(x["components"]),"unique upstream identities")'
+
+  live-audit:
+    name: Audit latest stable COSMIC release
+    needs: resolver-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Resolve latest stable COSMIC release and audit recipe coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_release_audit.py --report cosmic-audit.json
+      - name: Upload component audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-release-component-audit
+          path: cosmic-audit.json
+          if-no-files-found: warn
+          retention-days: 14
