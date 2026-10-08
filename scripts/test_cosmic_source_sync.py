@@ -22,12 +22,12 @@ source = 'git+https://github.com/pop-os/libcosmic.git?rev=abc#0123456789abcdef01
         refs = sync.rust_refs("version = 4\n\n" + "\n".join(packages))
         self.assertEqual(len(refs), 21)
         cosm = next(v for v in refs if v["name"] == "libcosmic")
-        self.assertEqual(cosm["repo"], "github:pop-os/libcosmic")
+        self.assertEqual(cosm["repo"], "github:pop-os/libcosmic.git")
         self.assertEqual(cosm["query"], {"rev": "abc"})
         self.assertEqual(cosm["commit"], "0123456789abcdef0123456789abcdef01234567")
         self.assertEqual(sync.dump_refs(refs).count('  - kind:'), 21)
 
-    def test_git_dependency_double_slash_is_normalized(self):
+    def test_git_dependency_double_slash_is_preserved_for_cargo(self):
         registry = "\n".join(
             "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'registry+https://github.com/rust-lang/crates.io-index'\nchecksum = '%064x'\n" % (i, i + 1)
             for i in range(20))
@@ -38,7 +38,7 @@ source = 'git+https://github.com/pop-os//cosmic-protocols?branch=main#c0cff4db14
 """
         refs = sync.rust_refs("version = 4\n\n" + registry + "\n" + git)
         component = next(x for x in refs if x["name"] == "cosmic-protocols")
-        self.assertEqual(component["repo"], "github:pop-os/cosmic-protocols")
+        self.assertEqual(component["repo"], "github:pop-os//cosmic-protocols")
         self.assertEqual(component["query"], {"branch": "main"})
 
     def test_registry_checksum_required(self):
