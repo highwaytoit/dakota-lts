@@ -98,7 +98,7 @@ def update_recipe(text, name, release, sha, refs):
         last = text.find("\nconfig:\n", first)
         if first < 0 or last < 0:
             raise AuditError("Rust recipe is missing cargo2 or config section: " + name)
-        block = "- kind: cargo2\n  url: crates:\n  vendor-dir: .vendored\n" + dump_refs(refs)
+        block = "- kind: cargo2\n  url: 'crates:'\n  vendor-dir: .vendored\n" + dump_refs(refs)
         text = text[:first] + block + text[last:]
     return text
 
