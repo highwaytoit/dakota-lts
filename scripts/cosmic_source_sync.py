@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 import tomllib
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from cosmic_release_audit import AuditError, get_json, latest_stable, release_manifest
 
@@ -68,13 +68,15 @@ def rust_refs(lock_text):
                     "version": str(item["version"])}
             if parsed.query:
                 query = {}
-                for part in parsed.query.split("&"):
-                    if "=" not in part:
-                        raise AuditError("Invalid Rust git query: " + source)
-                    key, value = part.split("=", 1)
-                    if key in query or key not in {"branch", "tag", "rev"} or not value:
+                for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+                    if (key in query or key not in {"branch", "tag", "rev"}
+                            or not value):
                         raise AuditError("Invalid Rust git query: " + source)
                     query[key] = value
+                # Cargo.lock percent-encodes git ref names. Store decoded
+                # values here: cargo2 later uses urlencode() to generate
+                # the matching Cargo source ID; preserving %2F would
+                # incorrectly generate %252F and break --frozen.
                 data["query"] = query
             refs.append(data)
         else:
