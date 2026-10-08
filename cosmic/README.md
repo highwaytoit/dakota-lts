@@ -41,16 +41,18 @@ positives rather than silently create an exception list.
 ## Running
 
 From Dakota's repository root, sync the latest official stable source
-revisions and matching Rust Cargo.lock snapshots **before** the audit:
+revisions and matching Rust Cargo.lock snapshots before BuildStream runs:
 
 - `python3 scripts/cosmic_source_sync.py --write`
 - `python3 scripts/cosmic_release_audit.py --report cosmic-audit.json`
+- `python3 scripts/cosmic_upstream_sync.py`
 - `python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v`
 
-The CI workflow runs the same sequence on an ephemeral GitHub-hosted worker.
-It does not push synced snapshots or published images. The source sync edits
-only the worker's local checkout. A later image workflow must likewise run
-the sync before BuildStream resolves or builds the graph.
+The GitHub-hosted audit job verifies the release and generates the source
+patch; the existing Dakota worker repeats both synchronizers before it
+runs BuildStream graph checks. These files live only in the ephemeral
+checkout, are never pushed to GitHub, and do not publish images.
+Every later image-build job must follow the same order.
 
 The audit currently combines Razorfin's `main` packaging inventory with
 Dakota's four supplemental recipes in `elements/cosmic-core/`, including
@@ -62,13 +64,20 @@ To accept a newer stable release as the next comparison baseline, run
 and after any missing components have been packaged. This will fail if any
 blocking change is unresolved. Keep baseline acceptance a reviewed action.
 
-These steps **do not yet synchronize Razorfin's 26 existing recipe source
-revisions** into a Dakota-owned BuildStream graph. The four supplemental
-recipes are ready for BuildStream graph integration, but have not been
-built. Graph wiring, upstream-source revision control for all recipes,
-Rust plugin compatibility, dependency checks, and OCI image builds are
-separate milestones. A green inventory audit is not proof of a bootable
-COSMIC image.
+The pinned Razorfin BuildStream subproject is consumed via
+`elements/cosmic-build-meta.bst` with Dakota's freedesktop-sdk and
+BuildStream plugin junctions. The upstream source synchronizer checks
+**all** Razorfin COSMIC component recipes against the tagged stable Epoch
+manifest and generates a local Git patch for any changed source revisions
+(and their matching Rust Cargo.lock dependencies). Already-correct recipes
+are left untouched. The patch is applied by BuildStream's patch_queue
+source, never committed to Dakota or pushed to Razorfin.
+
+`cosmic/desktop.bst` and `cosmic/system.bst` are graph-only targets.
+Both graph checks passed on Dakota's existing worker (565 and 840 elements,
+respectively), including all four supplemental components and the shared
+`core/linux-fdsdk.bst` kernel. **No COSMIC source binaries, OCI images,
+boot tests, or NVIDIA COSMIC variants have been built yet.**
 
 ## Verified initial reference
 
