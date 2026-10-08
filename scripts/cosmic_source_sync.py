@@ -43,13 +43,25 @@ def rust_refs(lock_text):
                          "version": str(item["version"]), "sha": checksum})
         elif source.startswith("git+"):
             parsed = urlsplit(source[4:])
-            if parsed.scheme != "https" or parsed.hostname != "github.com":
+            hosts = {
+                "github.com": "github",
+                "gitlab.com": "gitlab",
+                "gitlab.freedesktop.org": "freedesktop",
+                "gitlab.gnome.org": "gnome",
+                "codeberg.org": "codeberg",
+                "git.sr.ht": "srht",
+            }
+            if parsed.scheme != "https" or parsed.hostname not in hosts:
                 raise AuditError("Unsupported Rust git dependency: " + source)
-            path = "/".join(part for part in parsed.path.strip("/").removesuffix(".git").split("/") if part)
-            if len(path.split("/")) != 2 or not re.fullmatch(r"[0-9a-f]{40}", parsed.fragment):
+            parts = [part for part in parsed.path.strip("/").removesuffix(".git").split("/")
+                     if part]
+            if (len(parts) < 2 or any(part in (".", "..") for part in parts)
+                    or (parsed.hostname == "github.com" and len(parts) != 2)
+                    or not re.fullmatch(r"[0-9a-f]{40}", parsed.fragment)):
                 raise AuditError("Unsupported Rust git revision: " + source)
             data = {"kind": "git", "commit": parsed.fragment,
-                    "repo": "github:" + path, "name": item["name"],
+                    "repo": hosts[parsed.hostname] + ":" + "/".join(parts),
+                    "name": item["name"],
                     "version": str(item["version"])}
             if parsed.query:
                 query = {}
