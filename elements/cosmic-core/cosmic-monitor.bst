@@ -22,7 +22,7 @@ sources:
   track: epoch-1.*
   ref: epoch-1.10.0-0-ga79ce9e7d2259a82150d56978fb7a094bd4ec2f0
 - kind: cargo2
-  url: crates:
+  url: 'crates:'
   vendor-dir: .vendored
   ref: []
 
