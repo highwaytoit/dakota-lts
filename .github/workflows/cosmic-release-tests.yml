@@ -1,0 +1,31 @@
+name: COSMIC release resolver tests
+
+on:
+  push:
+    branches:
+      - cosmic-lts-integration
+    paths:
+      - scripts/cosmic_release_audit.py
+      - scripts/test_cosmic_release_audit.py
+      - cosmic/**
+      - .github/workflows/cosmic-release-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolver-tests:
+    name: Offline COSMIC resolver tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@v4
+      - name: Compile resolver and test source
+        run: python3 -m py_compile scripts/cosmic_release_audit.py scripts/test_cosmic_release_audit.py
+      - name: Run offline regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_cosmic_release_audit.py' -v
+      - name: Confirm baseline structure
+        run: |
+          python3 -c 'import json; x=json.load(open("cosmic/release-baseline.json")); assert x["release"].startswith("epoch-"); assert len(x["components"]) == len({v["id"] for v in x["components"]}); print("Baseline:",x["release"],len(x["components"]),"unique upstream identities")'
