@@ -1,0 +1,12 @@
+diff --git a/elements/core/cosmic-applets.bst b/elements/core/cosmic-applets.bst
+--- a/elements/core/cosmic-applets.bst
++++ b/elements/core/cosmic-applets.bst
+@@ -3276,7 +3276,7 @@
+   configure-commands: []
+   build-commands:
+   - |
+-    just build-release
++    CARGO_BUILD_JOBS=1 just build-release
+   install-commands:
+   - |
+     just rootdir="%{install-root}" prefix="%{prefix}" install
