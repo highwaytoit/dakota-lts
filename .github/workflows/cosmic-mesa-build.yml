@@ -56,7 +56,8 @@ jobs:
           validated = []
           for plugin in candidates:
               text = plugin.read_text(encoding="utf-8")
-              if text.count("dest.get_worktree().reset_index()") == 1 and text.count("sub_dest.get_worktree().reset_index()") == 1:
+              calls = [line.strip() for line in text.splitlines()]
+              if calls.count("dest.get_worktree().reset_index()") == 1 and calls.count("sub_dest.get_worktree().reset_index()") == 1:
                   validated.append(str(plugin))
           assert validated, "Neither Cargo checkout call site is patched in the staged COSMIC junction"
           print("Verified both Dulwich WorkTree checkout call sites:", validated[-1])
