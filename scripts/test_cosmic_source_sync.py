@@ -41,6 +41,23 @@ source = 'git+https://github.com/pop-os//cosmic-protocols?branch=main#c0cff4db14
         self.assertEqual(component["repo"], "github:pop-os//cosmic-protocols")
         self.assertEqual(component["query"], {"branch": "main"})
 
+    def test_percent_encoded_branch_from_actual_compositor_lock(self):
+        from urllib.parse import urlencode
+        registry = "\n".join(
+            "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'registry+https://github.com/rust-lang/crates.io-index'\nchecksum = '%064x'\n" % (i, i + 1)
+            for i in range(20))
+        upstream = """[[package]]
+name = "id_tree"
+version = "1.8.0"
+source = "git+https://github.com/Drakulix/id-tree.git?branch=feature%2Fcopy_clone#632a57d6d49160e18d7300fa7edae52281ec5482"
+"""
+        refs = sync.rust_refs("version = 4\n\n" + registry + "\n" + upstream)
+        tree = next(item for item in refs if item["name"] == "id_tree")
+        self.assertEqual(tree["repo"], "github:Drakulix/id-tree.git")
+        self.assertEqual(tree["query"], {"branch": "feature/copy_clone"})
+        self.assertEqual(urlencode(tree["query"]), "branch=feature%2Fcopy_clone")
+        self.assertNotIn("%252F", sync.dump_refs(refs))
+
     def test_registry_checksum_required(self):
         lock = "version = 4\n\n" + "\n".join(
             "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'registry+https://github.com/rust-lang/crates.io-index'\n" % i
