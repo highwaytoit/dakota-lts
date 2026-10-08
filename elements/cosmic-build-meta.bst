@@ -19,3 +19,6 @@ config:
     # Dakota already owns FDSDK 26.08 + Linux 6.18 LTS.
     # Do not bring Razorfin's kernel and SDK overrides into this build.
     freedesktop-sdk.bst: freedesktop-sdk.bst
+    # Unify both BuildStream plugin subprojects with Dakota's root copies.
+    plugins/buildstream-plugins.bst: plugins/buildstream-plugins.bst
+    plugins/buildstream-plugins-community.bst: plugins/buildstream-plugins-community.bst
