@@ -9,6 +9,9 @@ on:
       - scripts/test_cosmic_release_audit.py
       - scripts/cosmic_source_sync.py
       - scripts/test_cosmic_source_sync.py
+      - scripts/cosmic_upstream_sync.py
+      - scripts/test_cosmic_upstream_sync.py
+      - patches/cosmic-build-meta/**
       - elements/cosmic-core/**
       - elements/cosmic/**
       - elements/cosmic-build-meta.bst
@@ -32,7 +35,7 @@ jobs:
       - name: Checkout experimental branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Compile resolver and test source
-        run: python3 -m py_compile scripts/cosmic_release_audit.py scripts/test_cosmic_release_audit.py scripts/cosmic_source_sync.py scripts/test_cosmic_source_sync.py
+        run: python3 -m py_compile scripts/cosmic_release_audit.py scripts/test_cosmic_release_audit.py scripts/cosmic_source_sync.py scripts/test_cosmic_source_sync.py scripts/cosmic_upstream_sync.py scripts/test_cosmic_upstream_sync.py
       - name: Run offline regression tests
         run: python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v
       - name: Confirm baseline structure
@@ -55,6 +58,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/cosmic_release_audit.py --report cosmic-audit.json
+      - name: Prepare reviewed upstream COSMIC source patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_upstream_sync.py
+      - name: Upload COSMIC source patch review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-upstream-source-report
+          path: |
+            cosmic-upstream-source-report.json
+            patches/cosmic-build-meta/0001-upstream-stable-cosmic.patch
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload component audit report
         if: always()
         uses: actions/upload-artifact@v4
@@ -82,6 +99,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/cosmic_source_sync.py --write
+      - name: Align Razorfin COSMIC recipe refs to official stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_upstream_sync.py
       - name: Validate shared COSMIC desktop dependency graph
         run: just bst show --deps all --format "%{name}" cosmic/desktop.bst > /tmp/dakota-cosmic-desktop-graph.txt
       - name: Validate shared COSMIC system dependency graph
