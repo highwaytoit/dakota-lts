@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/cosmic-mesa-build.yml
       - patches/cosmic-build-meta/0002-dulwich-worktree.patch
+      - patches/cosmic-build-meta/0003-cosmic-applets-serial-rust.patch
 
 permissions:
   contents: read
@@ -60,8 +61,28 @@ jobs:
               if calls.count("dest.get_worktree().reset_index()") == 1 and calls.count("sub_dest.get_worktree().reset_index()") == 1:
                   validated.append(str(plugin))
           assert validated, "Neither Cargo checkout call site is patched in the staged COSMIC junction"
-          print("Verified both Dulwich WorkTree checkout call sites:", validated[-1])
+          ready = []
+          for plugin in validated:
+              staged = Path(plugin).parents[3]
+              applets = staged / "elements" / "core" / "cosmic-applets.bst"
+              if applets.is_file() and "CARGO_BUILD_JOBS=1 just build-release" in applets.read_text(encoding="utf-8"):
+                  ready.append(str(applets))
+          assert ready, "COSMIC Applets single-job patch not found in staged junction"
+          for name in ("cosmic-monitor", "cosmic-osk", "cosmic-viewer"):
+              recipe = Path("elements/cosmic-core") / (name + ".bst")
+              assert "url: 'crates:crates/'" in recipe.read_text(encoding="utf-8"), name + " crate path not corrected"
+          print("Validated Dulwich checkout, Applets single-job patch, and three Rust crate source paths")
           PY
+
+      - name: Record worker memory before compilation
+        run: |
+          free -h
+          for file in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.events; do
+            if [ -r "$file" ]; then
+              echo "$file"
+              cat "$file"
+            fi
+          done
 
       - name: Build complete COSMIC Mesa OCI artifact
         run: just bst build cosmic/image.bst
@@ -69,9 +90,17 @@ jobs:
       - name: Check cached COSMIC Mesa OCI artifact
         run: just bst show --format "%{state}" cosmic/image.bst
 
-      - name: Report worker disk headroom without pruning caches
+      - name: Report worker memory and disk without pruning caches
         if: always()
-        run: df -h / /home || true
+        run: |
+          free -h
+          df -h / /home
+          for file in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.events; do
+            if [ -r "$file" ]; then
+              echo "$file"
+              cat "$file"
+            fi
+          done
 
       - name: Upload official component audit
         if: always()
