@@ -99,14 +99,16 @@ config:
     def test_supplemental_crate_urls_include_official_directory(self):
         root = Path(__file__).resolve().parent.parent
         aliases = (root / "include" / "aliases.yml").read_text(encoding="utf-8")
-        self.assertIn("crates: https://static.crates.io/", aliases)
+        alias = next(line.split("crates: ", 1)[1] for line in aliases.splitlines()
+                     if line.startswith("  crates: "))
         for name in sync.RUST:
             recipe = (root / "elements" / "cosmic-core" / (name + ".bst")).read_text(encoding="utf-8")
-            self.assertIn("  url: 'crates:crates/'", recipe)
-        self.assertEqual(
-            "https://static.crates.io/" + "crates/" + "aho-corasick/aho-corasick-1.1.5.crate",
-            "https://static.crates.io/crates/aho-corasick/aho-corasick-1.1.5.crate",
-        )
+            uri = next(line.split("url: 'crates:", 1)[1][:-1]
+                       for line in recipe.splitlines() if line.startswith("  url: 'crates:"))
+            self.assertEqual(
+                alias + uri + "aho-corasick/aho-corasick-1.1.5.crate",
+                "https://static.crates.io/crates/aho-corasick/aho-corasick-1.1.5.crate",
+            )
 
     def test_applets_low_memory_patch_is_separate_and_local(self):
         root = Path(__file__).resolve().parent.parent
