@@ -112,6 +112,23 @@ class CosmicReleaseAuditTests(unittest.TestCase):
         self.assertEqual(entries["cosmic-viewer"]["id"], "pop-os/cosmic-viewer")
         self.assertEqual(entries["simple-wrapper"]["id"], "pop-os/simple-wrapper")
 
+    def test_upstream_gitmodules_mixed_indentation(self):
+        # System76's Epoch 1.10.0 release indents this one path with a
+        # tab, but its url and branch with spaces. INI parsing breaks it.
+        text = '''[submodule "cosmic-applets"]
+    path = cosmic-applets
+    url = https://github.com/pop-os/cosmic-applets
+    branch = master
+[submodule "cosmic-applibrary"]
+\tpath = cosmic-app-library
+    url = https://github.com/pop-os/cosmic-applibrary
+    branch = master
+'''
+        result = audit.parse_gitmodules(text)
+        self.assertEqual(result["cosmic-app-library"]["name"], "cosmic-applibrary")
+        self.assertEqual(result["cosmic-app-library"]["id"],
+                         "pop-os/cosmic-applibrary")
+
     def test_unknown_submodule_url_fails_closed(self):
         with self.assertRaises(audit.AuditError):
             audit.parse_gitmodules('''[submodule "bad"]
