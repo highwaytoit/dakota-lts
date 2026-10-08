@@ -53,14 +53,17 @@ def rust_refs(lock_text):
             }
             if parsed.scheme != "https" or parsed.hostname not in hosts:
                 raise AuditError("Unsupported Rust git dependency: " + source)
-            parts = [part for part in parsed.path.strip("/").removesuffix(".git").split("/")
-                     if part]
+            # Preserve Cargo.lock's URL spelling (including a repeated slash
+            # or .git suffix). Cargo matches vendored git sources by their
+            # exact URL, not by equivalent normalized repository identities.
+            raw_path = parsed.path.lstrip("/")
+            parts = [part for part in raw_path.split("/") if part]
             if (len(parts) < 2 or any(part in (".", "..") for part in parts)
                     or (parsed.hostname == "github.com" and len(parts) != 2)
                     or not re.fullmatch(r"[0-9a-f]{40}", parsed.fragment)):
                 raise AuditError("Unsupported Rust git revision: " + source)
             data = {"kind": "git", "commit": parsed.fragment,
-                    "repo": hosts[parsed.hostname] + ":" + "/".join(parts),
+                    "repo": hosts[parsed.hostname] + ":" + raw_path,
                     "name": item["name"],
                     "version": str(item["version"])}
             if parsed.query:
