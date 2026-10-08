@@ -45,7 +45,7 @@ def rust_refs(lock_text):
             parsed = urlsplit(source[4:])
             if parsed.scheme != "https" or parsed.hostname != "github.com":
                 raise AuditError("Unsupported Rust git dependency: " + source)
-            path = parsed.path.strip("/").removesuffix(".git")
+            path = "/".join(part for part in parsed.path.strip("/").removesuffix(".git").split("/") if part)
             if len(path.split("/")) != 2 or not re.fullmatch(r"[0-9a-f]{40}", parsed.fragment):
                 raise AuditError("Unsupported Rust git revision: " + source)
             data = {"kind": "git", "commit": parsed.fragment,
