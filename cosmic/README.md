@@ -40,42 +40,52 @@ positives rather than silently create an exception list.
 
 ## Running
 
-From the Dakota repository root:
+From Dakota's repository root, sync the latest official stable source
+revisions and matching Rust Cargo.lock snapshots **before** the audit:
 
+- `python3 scripts/cosmic_source_sync.py --write`
 - `python3 scripts/cosmic_release_audit.py --report cosmic-audit.json`
-- `python3 -m unittest scripts/test_cosmic_release_audit.py`
+- `python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v`
 
-Until local COSMIC elements are integrated, the audit uses Razorfin's
-`main` branch as the **packaging reference only**, not as the authority
-for which components belong to an official stable release.
+The CI workflow runs the same sequence on an ephemeral GitHub-hosted worker.
+It does not push synced snapshots or published images. The source sync edits
+only the worker's local checkout. A later image workflow must likewise run
+the sync before BuildStream resolves or builds the graph.
 
-After integrating local COSMIC recipes, use:
-`python3 scripts/cosmic_release_audit.py --core-dir elements/core --report cosmic-audit.json`
+The audit currently combines Razorfin's `main` packaging inventory with
+Dakota's four supplemental recipes in `elements/cosmic-core/`, including
+`elements/cosmic-core/deps.bst`. Razorfin is only a packaging reference;
+the official tagged COSMIC Epoch tree defines the component inventory.
 
 To accept a newer stable release as the next comparison baseline, run
-`python3 scripts/cosmic_release_audit.py --core-dir elements/core --accept`.
-That action is intentionally explicit and will **not** run if there are
-unresolved blockers. Do not automate baseline acceptance or publishing
-without a separate reviewed change.
+`python3 scripts/cosmic_release_audit.py --accept` after the source sync
+and after any missing components have been packaged. This will fail if any
+blocking change is unresolved. Keep baseline acceptance a reviewed action.
 
-The audit currently reads the upstream source SHAs and reports them. It does
-**not yet rewrite BuildStream `git_repo` refs or Rust `cargo2` source metadata**.
-That wiring belongs to the later COSMIC integration work; do not claim a
-successful audit proves that a build uses the reported revisions.
+These steps **do not yet synchronize Razorfin's 26 existing recipe source
+revisions** into a Dakota-owned BuildStream graph. The four supplemental
+recipes are ready for BuildStream graph integration, but have not been
+built. Graph wiring, upstream-source revision control for all recipes,
+Rust plugin compatibility, dependency checks, and OCI image builds are
+separate milestones. A green inventory audit is not proof of a bootable
+COSMIC image.
 
 ## Verified initial reference
 
 COSMIC Epoch 1.10.0 (October 8, 2026): **30** actual tagged Git submodules,
 compared against Razorfin's existing `core/` BuildStream recipes:
-26 recognized; four missing packaging recipes:
+26 were already available; four supplemental recipe definitions were added
+to Dakota's experimental branch:
 
 - `pop-os/cosmic-monitor`
 - `pop-os/cosmic-osk`
 - `pop-os/cosmic-sound-theme`
 - `pop-os/cosmic-viewer`
 
-The conservative first audit is therefore expected to stop. This is the
-correct result, and the missing items become inputs to integration work.
+The initial live audit correctly stopped on these four entries. After
+the supplemental recipes and per-component Rust lockfile sync were added,
+the live inventory audit passed. Actual BuildStream compilation remains
+unverified.
 
 Release source:
 https://github.com/pop-os/cosmic-epoch/releases/tag/epoch-1.10.0
