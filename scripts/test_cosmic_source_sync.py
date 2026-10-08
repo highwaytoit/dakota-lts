@@ -27,6 +27,20 @@ source = 'git+https://github.com/pop-os/libcosmic.git?rev=abc#0123456789abcdef01
         self.assertEqual(cosm["commit"], "0123456789abcdef0123456789abcdef01234567")
         self.assertEqual(sync.dump_refs(refs).count('  - kind:'), 21)
 
+    def test_git_dependency_double_slash_is_normalized(self):
+        registry = "\n".join(
+            "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'registry+https://github.com/rust-lang/crates.io-index'\nchecksum = '%064x'\n" % (i, i + 1)
+            for i in range(20))
+        git = """[[package]]
+name = 'cosmic-protocols'
+version = '0.1.0'
+source = 'git+https://github.com/pop-os//cosmic-protocols?branch=main#c0cff4db14c37ed954983158e4055aa94c7741d9'
+"""
+        refs = sync.rust_refs("version = 4\n\n" + registry + "\n" + git)
+        component = next(x for x in refs if x["name"] == "cosmic-protocols")
+        self.assertEqual(component["repo"], "github:pop-os/cosmic-protocols")
+        self.assertEqual(component["query"], {"branch": "main"})
+
     def test_registry_checksum_required(self):
         lock = "version = 4\n\n" + "\n".join(
             "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'registry+https://github.com/rust-lang/crates.io-index'\n" % i
