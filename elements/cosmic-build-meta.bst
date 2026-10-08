@@ -9,6 +9,8 @@ sources:
   url: github:RazorfinOS-org/cosmic-build-meta.git
   track: main
   ref: 83aec8dac411da245077ecdd7fcf1641ec4c5aa6
+- kind: patch_queue
+  path: patches/cosmic-build-meta
 
 config:
   options:
