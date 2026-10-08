@@ -1,0 +1,21 @@
+diff --git a/plugins/local/sources/cargo2.py b/plugins/local/sources/cargo2.py
+--- a/plugins/local/sources/cargo2.py
++++ b/plugins/local/sources/cargo2.py
+@@ -647,7 +647,7 @@
+                 dest.update_shallow([self.commit.encode()], [])
+ 
+             with Repo(tmp_dir, object_store=mirror.object_store) as dest:
+-                dest.reset_index()
++                dest.get_worktree().reset_index()
+ 
+         # Initialize git submodules if present
+         gitmodules_path = os.path.join(tmp_dir, ".gitmodules")
+@@ -1051,7 +1051,7 @@
+                 sub_dest.update_shallow([commit.encode()], [])
+ 
+             with Repo(sub_dir, object_store=sub_mirror.object_store) as sub_dest:
+-                sub_dest.reset_index()
++                sub_dest.get_worktree().reset_index()
+ 
+ 
+ # config_inherit_workspace()
