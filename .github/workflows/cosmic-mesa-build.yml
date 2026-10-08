@@ -6,6 +6,7 @@ on:
       - cosmic-lts-integration
     paths:
       - .github/workflows/cosmic-mesa-build.yml
+      - patches/cosmic-build-meta/0002-dulwich-worktree.patch
 
 permissions:
   contents: read
@@ -44,6 +45,22 @@ jobs:
 
       - name: Verify COSMIC Mesa OCI graph before compilation
         run: just bst show --deps all --format "%{name}" cosmic/image.bst > /tmp/dakota-cosmic-mesa-elements.txt
+
+      - name: Confirm both patched Cargo Git checkout call sites
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path(".bst/staged-junctions/cosmic-build-meta.bst")
+          candidates = list(root.glob("*/plugins/local/sources/cargo2.py"))
+          assert candidates, "COSMIC junction's staged Cargo source plugin was not found"
+          validated = []
+          for plugin in candidates:
+              text = plugin.read_text(encoding="utf-8")
+              if text.count("dest.get_worktree().reset_index()") == 1 and text.count("sub_dest.get_worktree().reset_index()") == 1:
+                  validated.append(str(plugin))
+          assert validated, "Neither Cargo checkout call site is patched in the staged COSMIC junction"
+          print("Verified both Dulwich WorkTree checkout call sites:", validated[-1])
+          PY
 
       - name: Build complete COSMIC Mesa OCI artifact
         run: just bst build cosmic/image.bst
