@@ -49,7 +49,7 @@ sources:
   track: epoch-1.*
   ref: epoch-1.9.0-0-g1111111111111111111111111111111111111111
 - kind: cargo2
-  url: crates:
+  url: 'crates:'
   vendor-dir: .vendored
   ref: []
 
@@ -64,6 +64,8 @@ config:
         self.assertIn("name: 'x'", new)
         self.assertIn("sha: '" + ("a" * 64) + "'", new)
         self.assertNotIn("ref: []", new)
+        self.assertIn("url: 'crates:'", new)
+        self.assertNotIn("url: crates:", new)
         self.assertIn("config:\n  install-commands: []", new)
 
     def test_overlay_excludes_unresolved_cargo_placeholder(self):
