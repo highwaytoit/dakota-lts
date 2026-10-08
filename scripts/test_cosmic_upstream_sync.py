@@ -110,6 +110,34 @@ config:
             self.assertIn("+++ b/elements/core/cosmic-comp.bst", content)
             self.assertTrue(report.is_file())
 
+    def test_same_official_revision_does_not_need_cargo_refresh(self):
+        stable = self.source.replace(
+            "epoch-1.10.0-1-g" + "a" * 40,
+            "epoch-1.10.0-0-g" + "b" * 40)
+        self.assertTrue(upstream.matches_official_source(stable, self.component))
+        self.assertFalse(upstream.matches_official_source(self.source, self.component))
+
+    def test_same_source_has_no_patch_even_with_existing_cargo_metadata(self):
+        stable = self.source.replace(
+            "epoch-1.10.0-1-g" + "a" * 40,
+            "epoch-1.10.0-0-g" + "b" * 40)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            overlay = root / "cosmic-core"
+            overlay.mkdir()
+            (overlay / "deps.bst").write_text("kind: stack\n", encoding="utf-8")
+            destination = root / "patches" / "stable.patch"
+            with patch.object(upstream, "source_text", return_value=stable):
+                with patch.object(upstream, "get_json") as github:
+                    records = upstream.generate(
+                        "a" * 40, {"release": "epoch-1.10.0",
+                                   "components": [self.component]},
+                        output=str(destination), report=None,
+                        overlay_dir=str(overlay))
+                    github.assert_not_called()
+            self.assertFalse(destination.exists())
+            self.assertFalse(records[0]["changed"])
+
     def test_supplemental_component_is_discovered_not_manually_listed(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
