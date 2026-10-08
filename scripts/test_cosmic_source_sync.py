@@ -25,7 +25,7 @@ source = 'git+https://github.com/pop-os/libcosmic.git?rev=abc#0123456789abcdef01
         self.assertEqual(cosm["repo"], "github:pop-os/libcosmic")
         self.assertEqual(cosm["query"], {"rev": "abc"})
         self.assertEqual(cosm["commit"], "0123456789abcdef0123456789abcdef01234567")
-        self.assertEqual(len(sync.dump_refs(refs).splitlines()), 127)
+        self.assertEqual(sync.dump_refs(refs).count('  - kind:'), 21)
 
     def test_registry_checksum_required(self):
         lock = "version = 4\n\n" + "\n".join(
