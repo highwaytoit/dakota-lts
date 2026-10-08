@@ -7,7 +7,6 @@ No repository files are changed unless --accept is explicitly requested.
 """
 import argparse
 import base64
-import configparser
 import json
 import os
 from pathlib import Path
@@ -66,22 +65,42 @@ def github_identity(url):
 
 
 def parse_gitmodules(text):
-    conf = configparser.ConfigParser(interpolation=None)
-    conf.read_string(text)
-    mapping = {}
-    for section in conf.sections():
-        if not section.startswith('submodule "'):
+    # .gitmodules is Git config, not INI: upstream can indent a "path" with
+    # tabs and the following "url" with spaces. ConfigParser incorrectly
+    # interprets that as a multiline value.
+    sections = {}
+    current = None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#", ";")):
             continue
-        path = conf.get(section, "path", fallback=None)
-        url = conf.get(section, "url", fallback=None)
-        if not path or not url or path in mapping:
-            raise AuditError(f"Invalid or duplicate .gitmodules entry: {section}")
-        mapping[path] = {
-            "name": section.removeprefix('submodule "').removesuffix('"'),
-            "id": github_identity(url),
-        }
-    return mapping
+        section = re.fullmatch(r'\[submodule "([^"]+)"\]', line)
+        if section:
+            current = section.group(1)
+            if current in sections:
+                raise AuditError(f"Duplicate .gitmodules section: {current}")
+            sections[current] = {}
+            continue
+        if line.startswith("["):
+            current = None
+            continue
+        if current is None:
+            raise AuditError(f"Unexpected .gitmodules content: {line}")
+        if "=" not in line:
+            raise AuditError(f"Invalid .gitmodules assignment: {line}")
+        key, value = (item.strip() for item in line.split("=", 1))
+        if key in sections[current]:
+            raise AuditError(f"Duplicate .gitmodules key: {current}.{key}")
+        sections[current][key] = value
 
+    mapping = {}
+    for name, options in sections.items():
+        path = options.get("path")
+        url = options.get("url")
+        if not path or not url or path in mapping:
+            raise AuditError(f"Invalid or duplicate .gitmodules entry: {name}")
+        mapping[path] = {"name": name, "id": github_identity(url)}
+    return mapping
 
 def release_manifest(tag):
     if not STABLE_TAG.fullmatch(tag):
@@ -253,6 +272,6 @@ def run():
 if __name__ == "__main__":
     try:
         sys.exit(run())
-    except (AuditError, OSError, KeyError, ValueError, configparser.Error) as exc:
+    except (AuditError, OSError, KeyError, ValueError) as exc:
         print(f"COSMIC audit failed: {exc}", file=sys.stderr)
         sys.exit(1)
