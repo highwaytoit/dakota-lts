@@ -91,9 +91,31 @@ config:
         self.assertIn("name: 'x'", new)
         self.assertIn("sha: '" + ("a" * 64) + "'", new)
         self.assertNotIn("ref: []", new)
-        self.assertIn("url: 'crates:'", new)
+        self.assertIn("url: 'crates:crates/'", new)
+        self.assertNotIn("url: 'crates:'", new)
         self.assertNotIn("url: crates:", new)
         self.assertIn("config:\n  install-commands: []", new)
+
+    def test_supplemental_crate_urls_include_official_directory(self):
+        root = Path(__file__).resolve().parent.parent
+        aliases = (root / "include" / "aliases.yml").read_text(encoding="utf-8")
+        self.assertIn("crates: https://static.crates.io/", aliases)
+        for name in sync.RUST:
+            recipe = (root / "elements" / "cosmic-core" / (name + ".bst")).read_text(encoding="utf-8")
+            self.assertIn("  url: 'crates:crates/'", recipe)
+        self.assertEqual(
+            "https://static.crates.io/" + "crates/" + "aho-corasick/aho-corasick-1.1.5.crate",
+            "https://static.crates.io/crates/aho-corasick/aho-corasick-1.1.5.crate",
+        )
+
+    def test_applets_low_memory_patch_is_separate_and_local(self):
+        root = Path(__file__).resolve().parent.parent
+        patch_file = (root / "patches" / "cosmic-build-meta"
+                      / "0003-cosmic-applets-serial-rust.patch")
+        patch_content = patch_file.read_text(encoding="utf-8")
+        self.assertIn("a/elements/core/cosmic-applets.bst", patch_content)
+        self.assertIn("-    just build-release", patch_content)
+        self.assertIn("+    CARGO_BUILD_JOBS=1 just build-release", patch_content)
 
     def test_overlay_excludes_unresolved_cargo_placeholder(self):
         with tempfile.TemporaryDirectory() as tmp:
