@@ -13,10 +13,9 @@ import re
 import sys
 
 from cosmic_release_audit import AuditError, get_json, latest_stable, release_manifest
-from cosmic_source_sync import RUST, rust_refs, dump_refs
+from cosmic_source_sync import rust_refs, dump_refs
 
 REFERENCE = "RazorfinOS-org/cosmic-build-meta"
-SUPPLEMENTAL = RUST | {"cosmic-sound-theme"}
 PATCH_PATH = "patches/cosmic-build-meta/0001-upstream-stable-cosmic.patch"
 
 
@@ -76,15 +75,21 @@ def update_recipe(text, component, release, lock):
     return text
 
 
-def generate(reference_revision, release, *, output, report):
+def generate(reference_revision, release, *, output, report,
+             overlay_dir="elements/cosmic-core"):
     changes = []
     inventory = []
+    # Supplementary recipes are discovered from Dakota, not a fixed list.
+    overlay = Path(overlay_dir)
+    if not (overlay / "deps.bst").is_file():
+        raise AuditError("Missing supplemental COSMIC stack: " + str(overlay))
+    supplemental = {p.stem for p in overlay.glob("*.bst") if p.name != "deps.bst"}
     all_components = release["components"]
     if len({c["id"] for c in all_components}) != len(all_components):
         raise AuditError("Duplicate official COSMIC repository identity")
 
     for component in all_components:
-        if component["name"] in SUPPLEMENTAL:
+        if component["name"] in supplemental:
             continue
         path = "elements/core/" + component["name"] + ".bst"
         old = source_text(path, reference_revision)
@@ -128,13 +133,15 @@ def main():
     parser.add_argument("--junction", default="elements/cosmic-build-meta.bst")
     parser.add_argument("--output", default=PATCH_PATH)
     parser.add_argument("--report", default="cosmic-upstream-source-report.json")
+    parser.add_argument("--overlay-dir", default="elements/cosmic-core")
     args = parser.parse_args()
     source = Path(args.junction).read_text(encoding="utf-8")
     m = re.search(r"(?m)^  ref:\s*([0-9a-f]{40})\s*$", source)
     if not m:
         raise AuditError("COSMIC junction reference must be a reviewed 40-character SHA")
     release = release_manifest(latest_stable())
-    generate(m.group(1), release, output=args.output, report=args.report)
+    generate(m.group(1), release, output=args.output,
+             report=args.report, overlay_dir=args.overlay_dir)
     return 0
 
 
