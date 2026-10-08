@@ -25,7 +25,7 @@ sources:
   track: epoch-1.*
   ref: epoch-1.10.0-0-g77ba62deb7027217efab1999e90670f3c89c5a02
 - kind: cargo2
-  url: 'crates:'
+  url: 'crates:crates/'
   vendor-dir: .vendored
   ref: []
 
