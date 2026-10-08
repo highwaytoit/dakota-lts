@@ -1,0 +1,80 @@
+name: COSMIC Cargo component validation
+
+on:
+  push:
+    branches:
+      - cosmic-lts-integration
+    paths:
+      - .github/workflows/cosmic-component-validation.yml
+      - scripts/cosmic_ci_plugin.py
+      - scripts/test_cosmic_ci_plugin.py
+      - scripts/cosmic_source_sync.py
+      - scripts/test_cosmic_source_sync.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dakota-testing-lts-worker
+  cancel-in-progress: false
+
+jobs:
+  individual-components:
+    name: Verify COSMIC Rust sources before full image
+    runs-on: [self-hosted, Linux, X64, dakota-worker]
+    timeout-minutes: 360
+    env:
+      BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Validate source URL preservation and plugin isolation offline
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v
+      - name: Resolve supplemental official stable COSMIC sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_source_sync.py --write
+      - name: Stop on unsupported upstream components
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_release_audit.py --report cosmic-audit.json
+      - name: Generate official stable source refs for upstream recipes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_upstream_sync.py
+      - name: Switch Cargo plugin only in temporary COSMIC worker checkout
+        run: |
+          python3 scripts/cosmic_ci_plugin.py
+          git diff -- project.conf
+      - name: Validate COSMIC dependency graph with selected plugin
+        run: just bst show --deps all --format "%{name}" cosmic/system.bst > /tmp/dakota-cosmic-component-graph.txt
+      - name: Fetch COSMIC Monitor Rust dependencies
+        run: just bst source fetch cosmic-core/cosmic-monitor.bst
+      - name: Fetch COSMIC OSK Rust dependencies
+        run: just bst source fetch cosmic-core/cosmic-osk.bst
+      - name: Fetch COSMIC Viewer Rust dependencies
+        run: just bst source fetch cosmic-core/cosmic-viewer.bst
+      - name: Build COSMIC Compositor individually
+        run: just bst build cosmic-build-meta.bst:core/cosmic-comp.bst
+      - name: Build COSMIC Monitor individually
+        run: just bst build cosmic-core/cosmic-monitor.bst
+      - name: Build COSMIC OSK individually
+        run: just bst build cosmic-core/cosmic-osk.bst
+      - name: Build COSMIC Viewer individually
+        run: just bst build cosmic-core/cosmic-viewer.bst
+      - name: Report disk and memory without cache cleanup
+        if: always()
+        run: |
+          free -h
+          df -h / /home
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-individual-component-audit
+          path: cosmic-audit.json
+          if-no-files-found: warn
+          retention-days: 14
