@@ -16,6 +16,10 @@ on:
       - .github/workflows/cosmic-release-tests.yml
   workflow_dispatch:
 
+concurrency:
+  group: dakota-cosmic-checks-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
