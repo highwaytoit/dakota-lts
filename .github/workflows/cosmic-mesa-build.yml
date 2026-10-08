@@ -1,0 +1,65 @@
+name: COSMIC Mesa experimental build
+
+on:
+  push:
+    branches:
+      - cosmic-lts-integration
+    paths:
+      - .github/workflows/cosmic-mesa-build.yml
+
+permissions:
+  contents: read
+
+# Share the existing Dakota worker with the normal LTS workflows.
+concurrency:
+  group: dakota-testing-lts-worker
+  cancel-in-progress: false
+
+jobs:
+  build-cosmic-mesa:
+    name: Build COSMIC Mesa OCI without publishing
+    runs-on: [self-hosted, Linux, X64, dakota-worker]
+    timeout-minutes: 720
+    env:
+      BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+    steps:
+      - name: Checkout experimental branch only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Synchronize supplemental COSMIC stable sources and Rust dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_source_sync.py --write
+
+      - name: Audit official stable components and stop on unsupported changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_release_audit.py --report cosmic-audit.json
+
+      - name: Align Razorfin component recipes with official stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_upstream_sync.py
+
+      - name: Verify COSMIC Mesa OCI graph before compilation
+        run: just bst show --deps all --format "%{name}" cosmic/image.bst > /tmp/dakota-cosmic-mesa-elements.txt
+
+      - name: Build complete COSMIC Mesa OCI artifact
+        run: just bst build cosmic/image.bst
+
+      - name: Check cached COSMIC Mesa OCI artifact
+        run: just bst show --format "%{state}" cosmic/image.bst
+
+      - name: Report worker disk headroom without pruning caches
+        if: always()
+        run: df -h / /home || true
+
+      - name: Upload official component audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-mesa-stage4-component-audit
+          path: cosmic-audit.json
+          if-no-files-found: warn
+          retention-days: 14
