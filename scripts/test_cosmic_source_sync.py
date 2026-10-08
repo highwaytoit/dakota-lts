@@ -48,6 +48,19 @@ source = 'git+https://github.com/pop-os//cosmic-protocols?branch=main#c0cff4db14
         with self.assertRaises(audit.AuditError):
             sync.rust_refs(lock)
 
+    def test_gitlab_freedesktop_rust_dependency(self):
+        registry = "\n".join(
+            "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'registry+https://github.com/rust-lang/crates.io-index'\nchecksum = '%064x'\n" % (i, i + 1)
+            for i in range(20))
+        freedesktop = """[[package]]
+name = 'pipewire-rs'
+version = '0.1.0'
+source = 'git+https://gitlab.freedesktop.org/pipewire/pipewire-rs#71022422eebd1bb2cb5a3259362819639fd29b58'
+"""
+        refs = sync.rust_refs("version = 4\n\n" + registry + "\n" + freedesktop)
+        match = next(x for x in refs if x["name"] == "pipewire-rs")
+        self.assertEqual(match["repo"], "freedesktop:pipewire/pipewire-rs")
+
     def test_wrong_git_host_not_silently_ignored(self):
         lock = "version = 4\n\n" + "\n".join(
             "[[package]]\nname = 'pkg%d'\nversion = '1.0.0'\nsource = 'git+https://example.com/fork/repo#0123456789abcdef0123456789abcdef01234567'\n" % i
