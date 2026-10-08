@@ -117,14 +117,15 @@ def sync(core, release, *, write):
         cargo = rust_refs(source_text(c["id"], "Cargo.lock", c["sha"])) if name in RUST else []
         previous = recipe.read_text(encoding="utf-8")
         updated = update_recipe(previous, name, release["release"], c["sha"], cargo)
-        records.append((recipe, updated, c["sha"], len(cargo)))
+        records.append((recipe, updated, c["sha"], len(cargo),
+                        previous != updated))
     if write:
         # No writes until *all* upstream lock files and all recipes have validated.
-        for recipe, updated, _, _ in records:
-            recipe.write_text(updated, encoding="utf-8")
-    return [{"name":p.stem, "sha":sha, "cargo_packages":size,
-             "changed":p.read_text(encoding="utf-8") != value if not write else False}
-            for p, value, sha, size in records]
+        for recipe, updated, _, _, changed in records:
+            if changed:
+                recipe.write_text(updated, encoding="utf-8")
+    return [{"name":p.stem, "sha":sha, "cargo_packages":size, "changed":changed}
+            for p, _, sha, size, changed in records]
 
 
 def main():
