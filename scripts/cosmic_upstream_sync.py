@@ -75,6 +75,28 @@ def update_recipe(text, component, release, lock):
     return text
 
 
+def matches_official_source(text, component):
+    """True when the reference already uses the official tagged Git commit.
+
+    An unchanged source commit retains the upstream Cargo snapshot verbatim.
+    """
+    source = segment(text, "git_repo")
+    if not source:
+        raise AuditError("Missing COSMIC git source: " + component["id"])
+    first, last = source
+    chunk = text[first:last]
+    url = re.search(r"(?m)^  url: github:([^\s]+)$", chunk)
+    ref = re.search(r"(?m)^  ref:\s*([^\s]+)$", chunk)
+    if not url or not ref:
+        raise AuditError("Incomplete COSMIC git source: " + component["id"])
+    repo = url.group(1).strip("/").removesuffix(".git").lower()
+    if repo != component["id"]:
+        raise AuditError("COSMIC recipe identity mismatch: " + component["id"] +
+                         " vs " + repo)
+    return (ref.group(1) == component["sha"] or
+            ref.group(1).endswith("-g" + component["sha"]))
+
+
 def generate(reference_revision, release, *, output, report,
              overlay_dir="elements/cosmic-core"):
     changes = []
@@ -93,14 +115,19 @@ def generate(reference_revision, release, *, output, report,
             continue
         path = "elements/core/" + component["name"] + ".bst"
         old = source_text(path, reference_revision)
-        lock = None
-        if segment(old, "cargo2"):
-            payload = get_json("/repos/" + component["id"] + "/contents/Cargo.lock?ref=" +
-                               component["sha"])
-            if payload.get("encoding") != "base64":
-                raise AuditError("Cannot read Cargo.lock for " + component["id"])
-            lock = base64.b64decode(payload["content"]).decode("utf-8")
-        new = update_recipe(old, component, release["release"], lock)
+        if matches_official_source(old, component):
+            # No new Rust source implies no new Cargo.lock snapshot is needed.
+            # Preserve the already-consistent Razorfin recipe unmodified.
+            new = old
+        else:
+            lock = None
+            if segment(old, "cargo2"):
+                payload = get_json("/repos/" + component["id"] + "/contents/Cargo.lock?ref=" +
+                                   component["sha"])
+                if payload.get("encoding") != "base64":
+                    raise AuditError("Cannot read Cargo.lock for " + component["id"])
+                lock = base64.b64decode(payload["content"]).decode("utf-8")
+            new = update_recipe(old, component, release["release"], lock)
         inventory.append({"id": component["id"], "sha": component["sha"],
                           "changed": old != new})
         if old != new:
@@ -114,7 +141,10 @@ def generate(reference_revision, release, *, output, report,
     # Avoid leaving a stale patch from a previous release.
     patch = Path(output)
     patch.parent.mkdir(parents=True, exist_ok=True)
-    patch.write_text("".join(changes), encoding="utf-8")
+    if changes:
+        patch.write_text("".join(changes), encoding="utf-8")
+    elif patch.exists():
+        patch.unlink()
     if report:
         dest = Path(report)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +154,7 @@ def generate(reference_revision, release, *, output, report,
         }, indent=2) + "\n", encoding="utf-8")
     print("Stable COSMIC", release["release"], "Razorfin recipes", len(inventory),
           "updated", len([x for x in inventory if x["changed"]]))
-    print("Generated local junction patch:", patch, patch.stat().st_size, "bytes")
+    print("Generated local junction patch:", patch, patch.stat().st_size if patch.exists() else 0, "bytes")
     return inventory
 
 
