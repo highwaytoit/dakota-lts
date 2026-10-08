@@ -10,6 +10,8 @@ on:
       - scripts/cosmic_source_sync.py
       - scripts/test_cosmic_source_sync.py
       - elements/cosmic-core/**
+      - elements/cosmic/**
+      - elements/cosmic-build-meta.bst
       - cosmic/**
       - .github/workflows/cosmic-release-tests.yml
   workflow_dispatch:
@@ -57,3 +59,31 @@ jobs:
           path: cosmic-audit.json
           if-no-files-found: warn
           retention-days: 14
+
+  graph-validation:
+    name: Validate COSMIC desktop and system BuildStream graphs
+    needs: live-audit
+    runs-on: [self-hosted, Linux, X64, dakota-worker]
+    timeout-minutes: 60
+    concurrency:
+      group: dakota-testing-lts-worker
+      cancel-in-progress: false
+    env:
+      BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Update supplemental COSMIC source snapshots in local checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_source_sync.py --write
+      - name: Validate shared COSMIC desktop dependency graph
+        run: just bst show --deps all --format "%{name}" cosmic/desktop.bst > /tmp/dakota-cosmic-desktop-graph.txt
+      - name: Validate shared COSMIC system dependency graph
+        run: just bst show --deps all --format "%{name}" cosmic/system.bst > /tmp/dakota-cosmic-system-graph.txt
+      - name: Report graph sizes and kernel entries
+        run: |
+          echo "Desktop elements: $(wc -l < /tmp/dakota-cosmic-desktop-graph.txt)"
+          echo "System elements: $(wc -l < /tmp/dakota-cosmic-system-graph.txt)"
+          grep -E 'linux-fdsdk.bst|linux-ogc.bst|cosmic-core/' /tmp/dakota-cosmic-system-graph.txt || true
