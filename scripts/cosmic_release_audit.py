@@ -177,6 +177,30 @@ def local_inventory(core_dir):
     return recipes, included
 
 
+
+def overlay_inventory(core_dir):
+    """Inventory Dakota's additional core recipes and their shared stack."""
+    root = Path(core_dir)
+    if not root.is_dir():
+        raise AuditError(f"Missing COSMIC overlay directory: {root}")
+    stack = root / "deps.bst"
+    if not stack.is_file():
+        raise AuditError(f"Missing COSMIC supplemental stack: {stack}")
+    names = set(re.findall(r"^\s*-\s+cosmic-core/([^/\s]+)\.bst(?:\s*(?:#.*)?)?$",
+                           stack.read_text(encoding="utf-8"), re.M))
+    recipes = set()
+    for recipe in root.glob("*.bst"):
+        if recipe.name == "deps.bst":
+            continue
+        text = recipe.read_text(encoding="utf-8")
+        # An empty Cargo snapshot means a staged placeholder, not a built
+        # and tracked recipe. Do not count it as packaged/ready.
+        if "- kind: cargo2" in text and "  ref: []" in text:
+            continue
+        if "- kind: git_repo" in text and re.search(r"^\s+ref: ", text, re.M):
+            recipes.add(recipe.stem)
+    return recipes, names
+
 def check(current, baseline, recipes, included):
     old = {x["id"]: x for x in baseline["components"]}
     now = {x["id"]: x for x in current["components"]}
@@ -226,6 +250,8 @@ def run():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", default="cosmic/release-baseline.json")
     parser.add_argument("--core-dir", help="Local elements/core directory after integration")
+    parser.add_argument("--overlay-dir", default="elements/cosmic-core",
+                        help="Dakota supplemental COSMIC recipes, used with Razorfin inventory")
     parser.add_argument("--reference-repo", default=REFERENCE_REPO)
     parser.add_argument("--reference-ref", default="main")
     parser.add_argument("--report", help="Write JSON report to this path")
@@ -244,6 +270,9 @@ def run():
         raise AuditError("Resolved release is older than the accepted baseline")
     recipes, included = (local_inventory(args.core_dir) if args.core_dir
                          else remote_inventory(args.reference_repo, args.reference_ref))
+    extra_recipes, extra_included = overlay_inventory(args.overlay_dir)
+    recipes |= extra_recipes
+    included |= extra_included
     report = check(current, baseline, recipes, included)
     print(f"COSMIC {report['resolved_release']}: {report['current_count']} components "
           f"(baseline {report['reference_release']}: {report['reference_count']})")
