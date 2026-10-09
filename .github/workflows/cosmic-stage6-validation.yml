@@ -1,0 +1,130 @@
+name: COSMIC Stage 6 - Four image validation
+
+on:
+  push:
+    branches:
+      - cosmic-lts-integration
+    paths:
+      - .github/workflows/cosmic-stage6-validation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dakota-testing-lts-worker
+  cancel-in-progress: false
+
+jobs:
+  stage6:
+    name: Four OCI builds and bootc metadata checks
+    runs-on: [self-hosted, Linux, X64, dakota-worker]
+    timeout-minutes: 720
+    env:
+      BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+    steps:
+      - name: Checkout isolated COSMIC branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: cosmic-lts-integration
+
+      - name: COSMIC offline regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v
+
+      - name: Verify Linux 6.18 LTS policy
+        run: |
+          grep -Fq 'track: v6.18.*' elements/core/linux-fdsdk.bst
+          grep -Eq '^[[:space:]]*ref: v6[.]18[.][0-9]+-0-g[0-9a-f]{40}$' elements/core/linux-fdsdk.bst
+
+      - name: Resolve shared NVIDIA R580 source
+        run: |
+          python3 scripts/resolve_nvidia_lts.py
+          grep -Eq "^  nvidia-lts-branch: '580'$" elements/bluefin-nvidia/nvidia-drivers.bst
+
+      - name: Build GNOME OCI regression
+        run: |
+          just bst show --deps all --format "%{name}" oci/bluefin.bst > /tmp/stage6-gnome-graph.txt
+          just bst build oci/bluefin.bst
+
+      - name: Build GNOME NVIDIA OCI regression
+        run: |
+          just bst show --deps all --format "%{name}" oci/bluefin-nvidia.bst > /tmp/stage6-gnome-nvidia-graph.txt
+          just bst build oci/bluefin-nvidia.bst
+
+      - name: Resolve latest stable COSMIC sources and plugin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/cosmic_source_sync.py --write
+          python3 scripts/cosmic_release_audit.py --report stage6-cosmic-audit.json
+          python3 scripts/cosmic_upstream_sync.py
+          python3 scripts/cosmic_ci_plugin.py
+
+      - name: Build COSMIC OCI
+        run: |
+          just bst show --deps all --format "%{name}" cosmic/image.bst > /tmp/stage6-cosmic-graph.txt
+          just bst build cosmic/image.bst
+
+      - name: Build COSMIC NVIDIA OCI
+        run: |
+          just bst show --deps all --format "%{name}" cosmic/nvidia-image.bst > /tmp/stage6-cosmic-nvidia-graph.txt
+          grep -Fq 'bluefin-nvidia/nvidia-drivers.bst' /tmp/stage6-cosmic-nvidia-graph.txt
+          if grep -Fq 'cosmic-deps-nvidia/nvidia-drivers.bst' /tmp/stage6-cosmic-nvidia-graph.txt; then
+            echo 'Unexpected upstream NVIDIA driver in COSMIC NVIDIA image graph'
+            exit 1
+          fi
+          just bst build cosmic/nvidia-image.bst
+
+      - name: Verify all four OCI artifacts cached
+        run: |
+          for element in oci/bluefin.bst oci/bluefin-nvidia.bst cosmic/image.bst cosmic/nvidia-image.bst; do
+            echo "Checking $element"
+            just bst show --deps none --format "%{state}" "$element" \
+              | python3 -c 'import re,sys; state=re.sub(r"\\x1b\\[[0-9;]*m","",sys.stdin.read()).strip(); print(state); sys.exit(0 if state=="cached" else 1)'
+          done
+
+      - name: Verify COSMIC OCI bootc labels and edition titles
+        run: |
+          for edition in cosmic cosmic-nvidia; do
+            case "$edition" in
+              cosmic) element=cosmic/image.bst; expected="Dakota COSMIC (experimental)" ;;
+              cosmic-nvidia) element=cosmic/nvidia-image.bst; expected="Dakota COSMIC NVIDIA (experimental)" ;;
+            esac
+            root=".stage6-$edition-oci"
+            if [ -e "$root" ]; then
+              echo "Existing stage6 checkout; refusing overwrite"
+              exit 1
+            fi
+            just bst artifact checkout "$element" --directory "/src/$root"
+            skopeo inspect --config "oci:$PWD/$root" | EXPECTED="$expected" python3 -c '
+          import json,os,sys
+          labels=json.load(sys.stdin).get("config",{}).get("Labels",{})
+          assert labels.get("containers.bootc") == "1", labels
+          assert labels.get("org.opencontainers.image.title") == os.environ["EXPECTED"], labels
+          print("PASS bootc label and",os.environ["EXPECTED"])
+          '
+            rm -rf "$root"
+          done
+
+      - name: Check whether VM smoke prerequisites exist
+        run: |
+          if [ -e /dev/kvm ] && command -v bcvk >/dev/null 2>&1 && command -v virtiofsd >/dev/null 2>&1; then
+            echo "KVM/bcvk/virtiofsd present. VM smoke is not part of this build job."
+          else
+            echo "::warning::No complete VM environment. No boot/login/runtime validation has been performed."
+          fi
+
+      - name: Resource report without pruning
+        if: always()
+        run: |
+          free -h
+          df -h / /home
+
+      - name: Upload stable COSMIC audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-stage6-component-audit
+          path: stage6-cosmic-audit.json
+          if-no-files-found: warn
+          retention-days: 14
