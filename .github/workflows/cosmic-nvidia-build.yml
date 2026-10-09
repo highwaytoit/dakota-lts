@@ -1,6 +1,8 @@
 name: COSMIC NVIDIA experimental build
 
 on:
+  workflow_dispatch:
+  workflow_call:
   push:
     branches:
       - cosmic-lts-integration
@@ -39,6 +41,9 @@ jobs:
     steps:
       - name: Checkout experimental branch only
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Reusable calls start on main; image sources must come from the experimental branch.
+          ref: cosmic-lts-integration
 
       - name: Validate COSMIC source and NVIDIA isolation tests
         run: python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v
