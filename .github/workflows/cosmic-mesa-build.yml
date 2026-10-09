@@ -97,8 +97,8 @@ jobs:
             fi
           done
 
-      - name: Show cached COSMIC Mesa graph state before building
-        run: just bst show --format "%{name} %{state}" cosmic/image.bst
+      - name: Show cached COSMIC Mesa image state before building
+        run: just bst show --format "%{state}" cosmic/image.bst
 
       - name: Build complete COSMIC Mesa OCI artifact
         run: just bst build cosmic/image.bst
