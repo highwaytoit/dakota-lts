@@ -10,6 +10,10 @@ on:
       - scripts/test_cosmic_ci_plugin.py
       - scripts/cosmic_source_sync.py
       - scripts/test_cosmic_source_sync.py
+      - scripts/test_cosmic_packaging.py
+      - elements/cosmic-core/cosmic-monitor.bst
+      - elements/cosmic-core/cosmic-osk.bst
+      - elements/cosmic-core/cosmic-viewer.bst
   workflow_dispatch:
 
 permissions:
@@ -58,13 +62,39 @@ jobs:
       - name: Fetch COSMIC Viewer Rust dependencies
         run: just bst source fetch cosmic-core/cosmic-viewer.bst
       - name: Build COSMIC Compositor individually
+        id: compositor
+        continue-on-error: true
         run: just bst build cosmic-build-meta.bst:core/cosmic-comp.bst
       - name: Build COSMIC Monitor individually
+        id: monitor
+        continue-on-error: true
         run: just bst build cosmic-core/cosmic-monitor.bst
       - name: Build COSMIC OSK individually
+        id: osk
+        continue-on-error: true
         run: just bst build cosmic-core/cosmic-osk.bst
       - name: Build COSMIC Viewer individually
+        id: viewer
+        continue-on-error: true
         run: just bst build cosmic-core/cosmic-viewer.bst
+      - name: Verify all individual components succeeded
+        if: always()
+        env:
+          COMPOSITOR_RESULT: ${{ steps.compositor.outcome }}
+          MONITOR_RESULT: ${{ steps.monitor.outcome }}
+          OSK_RESULT: ${{ steps.osk.outcome }}
+          VIEWER_RESULT: ${{ steps.viewer.outcome }}
+        run: |
+          echo "Compositor: $COMPOSITOR_RESULT"
+          echo "Monitor: $MONITOR_RESULT"
+          echo "OSK: $OSK_RESULT"
+          echo "Viewer: $VIEWER_RESULT"
+          for result in "$COMPOSITOR_RESULT" "$MONITOR_RESULT" "$OSK_RESULT" "$VIEWER_RESULT"; do
+            if [ "$result" != "success" ]; then
+              echo "Component verification failed or did not run: $result" >&2
+              exit 1
+            fi
+          done
       - name: Report disk and memory without cache cleanup
         if: always()
         run: |
