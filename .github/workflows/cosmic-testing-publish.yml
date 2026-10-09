@@ -56,10 +56,11 @@ jobs:
               cosmic) element="cosmic/image.bst"; ref="ghcr.io/highwaytoit/dakota-cosmic:testing" ;;
               cosmic-nvidia) element="cosmic/nvidia-image.bst"; ref="ghcr.io/highwaytoit/dakota-cosmic-nvidia:testing" ;;
             esac
-            out="$RUNNER_TEMP/cosmic-testing-$edition-$GITHUB_RUN_ID"
+            out=".cosmic-testing-$edition-$GITHUB_RUN_ID"
             if [ -e "$out" ]; then echo "Refusing to overwrite $out"; exit 1; fi
-            just bst artifact checkout "$element" --directory "$out"
-            skopeo copy --all --dest-creds "$GH_ACTOR:$GH_TOKEN" "oci:$out" "docker://$ref"
+            just bst artifact checkout "$element" --directory "/src/$out"
+            if [ ! -f "$out/index.json" ]; then echo "Missing OCI index: $out/index.json"; exit 1; fi
+            skopeo copy --all --dest-creds "$GH_ACTOR:$GH_TOKEN" "oci:$PWD/$out" "docker://$ref"
             skopeo inspect --no-tags --creds "$GH_ACTOR:$GH_TOKEN" "docker://$ref" > /dev/null
             echo "Published and verified $ref" | tee -a "$GITHUB_STEP_SUMMARY"
             rm -rf "$out"
