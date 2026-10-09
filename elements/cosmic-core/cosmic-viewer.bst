@@ -13,6 +13,7 @@ build-depends:
 - cosmic-build-meta.bst:core-deps/just.bst
 - cosmic-build-meta.bst:core/libcosmic.bst
 - freedesktop-sdk.bst:components/cmake.bst
+- freedesktop-sdk.bst:components/make.bst
 - freedesktop-sdk.bst:components/nasm.bst
 - freedesktop-sdk.bst:components/zlib.bst
 - freedesktop-sdk.bst:components/libxkbcommon.bst
