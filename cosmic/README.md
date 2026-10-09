@@ -1,7 +1,7 @@
 # COSMIC stable release discovery — experimental
 
-Scope: `cosmic-lts-integration` only. This is a source-audit tool, not an
-OS build, a GNOME change, a driver update, or an automated package generator.
+Scope: `cosmic-lts-integration` only. Source auditing and experimental
+nonpublished COSMIC image builds are isolated from GNOME and regular workflows.
 
 ## Source of truth
 
@@ -76,8 +76,9 @@ source, never committed to Dakota or pushed to Razorfin.
 `cosmic/desktop.bst` and `cosmic/system.bst` are graph-only targets.
 Both graph checks passed on Dakota's existing worker (565 and 840 elements,
 respectively), including all four supplemental components and the shared
-`core/linux-fdsdk.bst` kernel. **No COSMIC source binaries, OCI images,
-boot tests, or NVIDIA COSMIC variants have been built yet.**
+`core/linux-fdsdk.bst` kernel. **COSMIC source binaries and the standard COSMIC OCI artifact were built
+successfully in Stage 4; boot/login tests and the NVIDIA variant remain
+separate tasks.**
 
 ## Verified initial reference
 
@@ -101,3 +102,17 @@ https://github.com/pop-os/cosmic-epoch/releases/tag/epoch-1.10.0
 
 Packaging reference:
 https://github.com/RazorfinOS-org/cosmic-build-meta
+
+## Experimental image build stages
+
+Stage 4 completed: the standard **COSMIC** OCI BuildStream artifact compiled on
+the dedicated worker (GitHub Actions run 37871900040). Its image is not
+published, and no boot/login smoke test has been performed.
+
+Stage 5 uses `cosmic/nvidia-image.bst`: the same COSMIC system graph with
+Dakota's existing R580 LTS driver, NVIDIA Wayland/GBM setup, and Linux 6.18
+kernel. It does not use Razorfin's independently packaged NVIDIA driver or
+GNOME's image/branding. The experimental build is not published to GHCR.
+
+The upstream COSMIC bootc install-defaults recipes still require Dakota-specific
+review before either edition is deployed; that is not part of Stage 5.

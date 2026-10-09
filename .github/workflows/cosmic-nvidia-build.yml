@@ -1,0 +1,114 @@
+name: COSMIC NVIDIA experimental build
+
+on:
+  push:
+    branches:
+      - cosmic-lts-integration
+    paths:
+      - .github/workflows/cosmic-nvidia-build.yml
+      - elements/cosmic/nvidia-system.bst
+      - elements/cosmic/nvidia-filesystem.bst
+      - elements/cosmic/nvidia-init-scripts.bst
+      - elements/cosmic/nvidia-image.bst
+      - elements/bluefin-nvidia/nvidia-drivers.bst
+      - elements/bluefin-nvidia/nvidia-vaapi-driver.bst
+      - scripts/test_cosmic_packaging.py
+      - scripts/cosmic_ci_plugin.py
+      - scripts/cosmic_source_sync.py
+      - scripts/cosmic_release_audit.py
+      - scripts/cosmic_upstream_sync.py
+      - patches/cosmic-build-meta/0002-dulwich-worktree.patch
+      - patches/cosmic-build-meta/0003-cosmic-applets-serial-rust.patch
+
+permissions:
+  contents: read
+
+# Serialize with normal Dakota builds and COSMIC; preserve existing caches.
+concurrency:
+  group: dakota-testing-lts-worker
+  cancel-in-progress: false
+
+jobs:
+  build-cosmic-nvidia:
+    name: Build COSMIC NVIDIA OCI without publishing
+    runs-on: [self-hosted, Linux, X64, dakota-worker]
+    timeout-minutes: 720
+    env:
+      BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+    steps:
+      - name: Checkout experimental branch only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Validate COSMIC source and NVIDIA isolation tests
+        run: python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v
+
+      - name: Synchronize latest stable COSMIC source and Rust dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_source_sync.py --write
+
+      - name: Audit official stable COSMIC components
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_release_audit.py --report cosmic-nvidia-audit.json
+
+      - name: Align Razorfin COSMIC component recipes to stable Epoch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cosmic_upstream_sync.py
+
+      - name: Select verified COSMIC Cargo source plugin
+        run: |
+          python3 scripts/cosmic_ci_plugin.py
+          git diff -- project.conf
+
+      - name: Verify Dakota NVIDIA R580 source policy remains unchanged
+        run: |
+          grep -Eq "^  nvidia-lts-branch: '580'$" elements/bluefin-nvidia/nvidia-drivers.bst
+          grep -Eq "^  nvidia-version: '580\\.[0-9]+\\.[0-9]+'$" elements/bluefin-nvidia/nvidia-drivers.bst
+          echo "Using Dakota R580 recipe without changing driver version"
+
+      - name: Verify COSMIC NVIDIA graph and shared kernel
+        run: |
+          just bst show --deps all --format "%{name}" cosmic/nvidia-image.bst > /tmp/dakota-cosmic-nvidia-elements.txt
+          grep -Fq "core/linux-fdsdk.bst" /tmp/dakota-cosmic-nvidia-elements.txt
+          grep -Fq "bluefin-nvidia/nvidia-drivers.bst" /tmp/dakota-cosmic-nvidia-elements.txt
+          if grep -Fq "cosmic-deps-nvidia/nvidia-drivers.bst" /tmp/dakota-cosmic-nvidia-elements.txt; then
+            echo "::error::Razorfin NVIDIA driver appeared in Dakota COSMIC graph"
+            exit 1
+          fi
+          if grep -Fq "oci/bluefin-nvidia.bst" /tmp/dakota-cosmic-nvidia-elements.txt; then
+            echo "::error::GNOME NVIDIA image appeared in COSMIC graph"
+            exit 1
+          fi
+          echo "COSMIC NVIDIA reuses Dakota R580 and the shared Linux LTS kernel"
+
+      - name: Report memory before compilation
+        run: |
+          free -h
+          df -h / /home
+
+      - name: Build complete COSMIC NVIDIA OCI artifact
+        run: just bst build cosmic/nvidia-image.bst
+
+      - name: Verify COSMIC NVIDIA OCI artifact is cached
+        shell: bash
+        run: |
+          just bst show --deps none --format "%{state}" cosmic/nvidia-image.bst \
+            | python3 -c 'import re,sys; states=re.sub(r"\\x1b\\[[0-9;]*m","",sys.stdin.read()).strip().splitlines(); print(states); sys.exit(0 if states == ["cached"] else 1)'
+
+      - name: Report worker resources without pruning
+        if: always()
+        run: |
+          free -h
+          df -h / /home
+
+      - name: Upload official COSMIC component audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-nvidia-stage5-component-audit
+          path: cosmic-nvidia-audit.json
+          if-no-files-found: warn
+          retention-days: 14

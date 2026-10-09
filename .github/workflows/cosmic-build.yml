@@ -1,11 +1,11 @@
-name: COSMIC Mesa experimental build
+name: COSMIC experimental build
 
 on:
   push:
     branches:
       - cosmic-lts-integration
     paths:
-      - .github/workflows/cosmic-mesa-build.yml
+      - .github/workflows/cosmic-build.yml
       - scripts/cosmic_ci_plugin.py
       - scripts/cosmic_source_sync.py
       - elements/cosmic-core/cosmic-viewer.bst
@@ -21,8 +21,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-cosmic-mesa:
-    name: Build COSMIC Mesa OCI without publishing
+  build-cosmic:
+    name: Build COSMIC OCI without publishing
     runs-on: [self-hosted, Linux, X64, dakota-worker]
     timeout-minutes: 720
     env:
@@ -55,8 +55,8 @@ jobs:
           python3 scripts/cosmic_ci_plugin.py
           git diff -- project.conf
 
-      - name: Verify COSMIC Mesa OCI graph before compilation
-        run: just bst show --deps all --format "%{name}" cosmic/image.bst > /tmp/dakota-cosmic-mesa-elements.txt
+      - name: Verify COSMIC OCI graph before compilation
+        run: just bst show --deps all --format "%{name}" cosmic/image.bst > /tmp/dakota-cosmic-elements.txt
 
       - name: Confirm both patched Cargo Git checkout call sites
         run: |
@@ -97,13 +97,13 @@ jobs:
             fi
           done
 
-      - name: Show cached COSMIC Mesa image state before building
+      - name: Show cached COSMIC image state before building
         run: just bst show --format "%{state}" cosmic/image.bst
 
-      - name: Build complete COSMIC Mesa OCI artifact
+      - name: Build complete COSMIC OCI artifact
         run: just bst build cosmic/image.bst
 
-      - name: Check cached COSMIC Mesa OCI artifact
+      - name: Check cached COSMIC OCI artifact
         run: just bst show --format "%{state}" cosmic/image.bst
 
       - name: Report worker memory and disk without pruning caches
@@ -122,7 +122,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cosmic-mesa-stage4-component-audit
+          name: cosmic-stage4-component-audit
           path: cosmic-audit.json
           if-no-files-found: warn
           retention-days: 14

@@ -1,4 +1,4 @@
-# Stage 4: local COSMIC Mesa OCI filesystem, including all stable Epoch pieces.
+# Stage 4: local COSMIC OCI filesystem, including all stable Epoch pieces.
 # No GHCR publication; this remains an experimental BuildStream artifact.
 kind: compose
 
