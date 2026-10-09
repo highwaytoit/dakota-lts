@@ -89,7 +89,7 @@ class CosmicPackagingTests(unittest.TestCase):
         self.assertIn("just bst build cosmic/nvidia-image.bst", workflow)
         self.assertIn("core/linux-fdsdk.bst", workflow)
         self.assertIn("bluefin-nvidia/nvidia-drivers.bst", workflow)
-        self.assertNotIn("scripts/resolve_nvidia_lts.py", workflow)
+        self.assertIn("scripts/resolve_nvidia_lts.py", workflow)
         for forbidden in ("podman push", "docker push", "podman system prune",
                           "podman image prune", "sudo podman system reset"):
             self.assertNotIn(forbidden, workflow)
