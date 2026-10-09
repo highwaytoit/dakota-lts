@@ -80,7 +80,7 @@ jobs:
           for element in oci/bluefin.bst oci/bluefin-nvidia.bst cosmic/image.bst cosmic/nvidia-image.bst; do
             echo "Checking $element"
             just bst show --deps none --format "%{state}" "$element" \
-              | python3 -c 'import re,sys; state=re.sub(r"\\x1b\\[[0-9;]*m","",sys.stdin.read()).strip(); print(state); sys.exit(0 if state=="cached" else 1)'
+              | python3 -c 'import re,sys; state=re.sub(r"\x1b\[[0-9;]*m","",sys.stdin.read()).strip(); print(state); sys.exit(0 if state=="cached" else 1)'
           done
 
       - name: Verify COSMIC OCI bootc labels and edition titles
