@@ -63,11 +63,11 @@ jobs:
           python3 scripts/cosmic_ci_plugin.py
           git diff -- project.conf
 
-      - name: Verify Dakota NVIDIA R580 source policy remains unchanged
+      - name: Resolve current NVIDIA R580 LTS in disposable checkout
         run: |
+          python3 scripts/resolve_nvidia_lts.py
           grep -Eq "^  nvidia-lts-branch: '580'$" elements/bluefin-nvidia/nvidia-drivers.bst
-          grep -Eq "^  nvidia-version: '580\\.[0-9]+\\.[0-9]+'$" elements/bluefin-nvidia/nvidia-drivers.bst
-          echo "Using Dakota R580 recipe without changing driver version"
+          echo "Using latest Dakota R580 maintenance source without changing LTS generation"
 
       - name: Verify COSMIC NVIDIA graph and shared kernel
         run: |
