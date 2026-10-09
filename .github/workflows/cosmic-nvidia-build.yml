@@ -96,7 +96,7 @@ jobs:
         shell: bash
         run: |
           just bst show --deps none --format "%{state}" cosmic/nvidia-image.bst \
-            | python3 -c 'import re,sys; states=re.sub(r"\\x1b\\[[0-9;]*m","",sys.stdin.read()).strip().splitlines(); print(states); sys.exit(0 if states == ["cached"] else 1)'
+            | python3 -c 'import re,sys; states=re.sub(r"\x1b\[[0-9;]*m","",sys.stdin.read()).strip().splitlines(); print(states); sys.exit(0 if states == ["cached"] else 1)'
 
       - name: Report worker resources without pruning
         if: always()

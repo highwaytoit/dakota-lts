@@ -94,6 +94,13 @@ class CosmicPackagingTests(unittest.TestCase):
                           "podman image prune", "sudo podman system reset"):
             self.assertNotIn(forbidden, workflow)
 
+    def test_nvidia_cache_check_strips_ansi_colors(self):
+        workflow = (ROOT / ".github" / "workflows" /
+                    "cosmic-nvidia-build.yml").read_text(encoding="utf-8")
+        self.assertIn('re.sub(r"\\x1b\\[[0-9;]*m"', workflow)
+        self.assertNotIn('re.sub(r"\\\\x1b\\\\[[0-9;]*m"', workflow)
+        self.assertIn('states == ["cached"]', workflow)
+
     def test_individual_build_failures_do_not_skip_following_components(self):
         workflow = (ROOT / ".github" / "workflows" /
                     "cosmic-component-validation.yml").read_text(encoding="utf-8")
