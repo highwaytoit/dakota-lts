@@ -6,6 +6,9 @@ on:
       - cosmic-lts-integration
     paths:
       - .github/workflows/cosmic-mesa-build.yml
+      - scripts/cosmic_ci_plugin.py
+      - scripts/cosmic_source_sync.py
+      - elements/cosmic-core/cosmic-viewer.bst
       - patches/cosmic-build-meta/0002-dulwich-worktree.patch
       - patches/cosmic-build-meta/0003-cosmic-applets-serial-rust.patch
 
@@ -29,6 +32,9 @@ jobs:
       - name: Checkout experimental branch only
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Validate COSMIC recipe and plugin isolation regression checks
+        run: python3 -m unittest discover -s scripts -p 'test_cosmic_*.py' -v
+
       - name: Synchronize supplemental COSMIC stable sources and Rust dependencies
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,6 +49,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/cosmic_upstream_sync.py
+
+      - name: Select verified COSMIC Cargo plugin in disposable runner checkout
+        run: |
+          python3 scripts/cosmic_ci_plugin.py
+          git diff -- project.conf
 
       - name: Verify COSMIC Mesa OCI graph before compilation
         run: just bst show --deps all --format "%{name}" cosmic/image.bst > /tmp/dakota-cosmic-mesa-elements.txt
@@ -71,7 +82,9 @@ jobs:
           for name in ("cosmic-monitor", "cosmic-osk", "cosmic-viewer"):
               recipe = Path("elements/cosmic-core") / (name + ".bst")
               assert "url: 'crates:crates/'" in recipe.read_text(encoding="utf-8"), name + " crate path not corrected"
-          print("Validated Dulwich checkout, Applets single-job patch, and three Rust crate source paths")
+          viewer = Path("elements/cosmic-core/cosmic-viewer.bst").read_text(encoding="utf-8")
+          assert "- freedesktop-sdk.bst:components/make.bst" in viewer, "Viewer GNU Make dependency missing"
+          print("Validated Dulwich, Applets, three Rust crate sources, and Viewer GNU Make dependency")
           PY
 
       - name: Record worker memory before compilation
@@ -83,6 +96,9 @@ jobs:
               cat "$file"
             fi
           done
+
+      - name: Show cached COSMIC Mesa graph state before building
+        run: just bst show --format "%{name} %{state}" cosmic/image.bst
 
       - name: Build complete COSMIC Mesa OCI artifact
         run: just bst build cosmic/image.bst
