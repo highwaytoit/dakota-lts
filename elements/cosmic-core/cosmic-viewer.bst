@@ -9,6 +9,7 @@ build-depends:
 - freedesktop-sdk.bst:components/pkg-config.bst
 - freedesktop-sdk.bst:components/_private/gcc-base.bst
 - freedesktop-sdk.bst:bootstrap/binutils.bst
+- freedesktop-sdk.bst:components/stripper.bst
 - cosmic-build-meta.bst:core-deps/just.bst
 - cosmic-build-meta.bst:core/libcosmic.bst
 - freedesktop-sdk.bst:components/cmake.bst
