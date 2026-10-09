@@ -1,0 +1,33 @@
+name: COSMIC - Manual image build
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: Experimental COSMIC image edition to build
+        required: true
+        type: choice
+        default: cosmic
+        options:
+          - cosmic
+          - cosmic-nvidia
+
+permissions:
+  contents: read
+
+# The called workflows enforce Dakota's shared worker concurrency group.
+# This wrapper does not publish artifacts or change any image channel.
+jobs:
+  cosmic:
+    name: COSMIC
+    if: ${{ inputs.edition == 'cosmic' }}
+    uses: highwaytoit/dakota-lts/.github/workflows/cosmic-build.yml@cosmic-lts-integration
+    permissions:
+      contents: read
+
+  cosmic-nvidia:
+    name: COSMIC NVIDIA
+    if: ${{ inputs.edition == 'cosmic-nvidia' }}
+    uses: highwaytoit/dakota-lts/.github/workflows/cosmic-nvidia-build.yml@cosmic-lts-integration
+    permissions:
+      contents: read
