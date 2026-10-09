@@ -1,4 +1,4 @@
-# Stage 4 experimental COSMIC OCI assembly, not for publication.
+# Stage 4 experimental COSMIC OCI assembly; testing channel only.
 # Reuses Razorfin's bootc assembly sequence while composing Dakota's
 # COSMIC system stack (including supplemental official Epoch components).
 # Image branding/install defaults must be reviewed before deployment.
@@ -59,11 +59,11 @@ config:
       config:
         Labels:
           'org.opencontainers.image.title': 'Dakota COSMIC (experimental)'
-          'org.opencontainers.image.description': 'Unpublished COSMIC bootc build (standard edition)'
+          'org.opencontainers.image.description': 'COSMIC bootc testing image (standard edition)'
           'org.opencontainers.image.vendor': 'Dakota LTS'
           'org.opencontainers.image.licenses': 'GPL-3.0-or-later'
           'org.opencontainers.image.source': 'https://github.com/highwaytoit/dakota-lts'
           'containers.bootc': '1'
       index-annotations:
-        'org.opencontainers.image.ref.name': 'ghcr.io/highwaytoit/dakota-cosmic:experimental'
+        'org.opencontainers.image.ref.name': 'ghcr.io/highwaytoit/dakota-cosmic:testing'
     EOF

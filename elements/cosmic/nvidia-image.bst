@@ -1,4 +1,4 @@
-# Stage 5 experimental COSMIC NVIDIA OCI image, never published.
+# Stage 5 experimental COSMIC NVIDIA OCI image; testing channel only.
 # Reuse COSMIC's full system stack, Dakota's R580 driver, and the
 # shared freedesktop-sdk OCI platform rather than adding a second kernel.
 kind: script
@@ -71,11 +71,11 @@ config:
       config:
         Labels:
           'org.opencontainers.image.title': 'Dakota COSMIC NVIDIA (experimental)'
-          'org.opencontainers.image.description': 'Unpublished COSMIC bootc build with Dakota NVIDIA R580 LTS'
+          'org.opencontainers.image.description': 'COSMIC bootc testing image with Dakota NVIDIA R580 LTS'
           'org.opencontainers.image.vendor': 'Dakota LTS'
           'org.opencontainers.image.licenses': 'GPL-3.0-or-later AND LicenseRef-NVIDIA-SLA'
           'org.opencontainers.image.source': 'https://github.com/highwaytoit/dakota-lts'
           'containers.bootc': '1'
       index-annotations:
-        'org.opencontainers.image.ref.name': 'ghcr.io/highwaytoit/dakota-cosmic-nvidia:experimental'
+        'org.opencontainers.image.ref.name': 'ghcr.io/highwaytoit/dakota-cosmic-nvidia:testing'
     EOF

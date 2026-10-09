@@ -1,0 +1,75 @@
+name: Publish COSMIC testing images
+
+on:
+  push:
+    branches:
+      - cosmic-lts-integration
+    paths:
+      - .github/workflows/cosmic-testing-publish.yml
+      - elements/cosmic/image.bst
+      - elements/cosmic/nvidia-image.bst
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: dakota-testing-lts-worker
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: COSMIC and COSMIC NVIDIA to testing
+    runs-on: [self-hosted, Linux, X64, dakota-worker]
+    timeout-minutes: 720
+    env:
+      BUILD_GAMING: "false"
+      BST_FLAGS: "--config /src/.github/buildstream-worker.conf"
+    steps:
+      - name: Checkout experimental COSMIC branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: cosmic-lts-integration
+
+      - name: Synchronize official stable COSMIC and NVIDIA R580
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/cosmic_source_sync.py --write
+          python3 scripts/cosmic_release_audit.py --report cosmic-testing-audit.json
+          python3 scripts/cosmic_upstream_sync.py
+          python3 scripts/cosmic_ci_plugin.py
+          python3 scripts/resolve_nvidia_lts.py
+
+      - name: Build both OCI images
+        run: |
+          just bst build cosmic/image.bst
+          just bst build cosmic/nvidia-image.bst
+
+      - name: Publish both testing tags
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for edition in cosmic cosmic-nvidia; do
+            case "$edition" in
+              cosmic) element="cosmic/image.bst"; ref="ghcr.io/highwaytoit/dakota-cosmic:testing" ;;
+              cosmic-nvidia) element="cosmic/nvidia-image.bst"; ref="ghcr.io/highwaytoit/dakota-cosmic-nvidia:testing" ;;
+            esac
+            out="$RUNNER_TEMP/cosmic-testing-$edition-$GITHUB_RUN_ID"
+            if [ -e "$out" ]; then echo "Refusing to overwrite $out"; exit 1; fi
+            just bst artifact checkout "$element" --directory "$out"
+            skopeo copy --all --dest-creds "$GH_ACTOR:$GH_TOKEN" "oci:$out" "docker://$ref"
+            skopeo inspect --no-tags --creds "$GH_ACTOR:$GH_TOKEN" "docker://$ref" > /dev/null
+            echo "Published and verified $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+            rm -rf "$out"
+          done
+
+      - name: Upload source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-testing-source-audit
+          path: cosmic-testing-audit.json
+          if-no-files-found: warn
+          retention-days: 14
