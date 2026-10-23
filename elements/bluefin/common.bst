@@ -4,7 +4,7 @@ sources:
 - kind: git_repo
   url: github:projectbluefin/common.git
   track: main
-  ref: v2026.08-277-g82120d29d1beeeb9e1362e7276623543f405b962
+  ref: v2026.08-324-g3c4399e449e836184baa7f58ae0677c1f5cc9549
 # Consume common's fastfetch layout directly; only adapt the install-date input.
 # Drop this patch once common provides a shared install-date helper.
 - kind: patch
