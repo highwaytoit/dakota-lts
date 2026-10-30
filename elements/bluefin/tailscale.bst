@@ -4,11 +4,11 @@ sources:
 - kind: tar
   (?):
   - arch == "x86_64":
-      url: tailscale_pkgs:tailscale_1.102.5_amd64.tgz
-      ref: 65e6d7f19ad7e1c87d20c2a21e92f38a96795cb897af54b04536590e1c148d12
+      url: tailscale_pkgs:tailscale_1.104.4_amd64.tgz
+      ref: 624ea093d47d62cf56f17b8332d74b8decda4a1faa610ebc60a1de334b2b3dc9
   - arch == "aarch64":
-      url: tailscale_pkgs:tailscale_1.102.5_arm64.tgz
-      ref: 60d60109e33d097318c66adc1f1b4e78e528fa1c0357e8bfe82af99f21a18b89
+      url: tailscale_pkgs:tailscale_1.104.4_arm64.tgz
+      ref: a1c249ce6bdebef62e1ae3b997595555bce2ae4709bf95a718e9ca7a129dad7e
 
 build-depends:
 - core/sandbox-tools.bst
